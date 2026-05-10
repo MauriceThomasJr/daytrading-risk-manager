@@ -6,7 +6,7 @@ int main() {
     std::cout << std::boolalpha; 
     std::cout << "Position size: " << trading.calculatePositionSize(7000, 6980) << " contract(s)" << std::endl;
     std::cout << "Can trade? " << trading.canTakeNewTrade() << std::endl;
-    trading.recordTradeResults(-100.0);
+    trading.recordTradeResult(-100.0);
     std::cout << "Balance: $" << trading.getAccBal() << std::endl;
     std::cout << "Daily P&L: $" << trading.getPnL() << std::endl;
     std::cout << "Trades today: " << trading.getTradesToday() << std::endl;

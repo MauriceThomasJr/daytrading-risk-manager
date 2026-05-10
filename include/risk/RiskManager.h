@@ -7,7 +7,7 @@ class RiskManager {
     RiskManager(double accountBalance, double riskPerTradePct, double maxDailyLossPct, int maxTrades, int dollarPerPoint);
     int calculatePositionSize (double entryPrice, double stopPrice) const;
     bool canTakeNewTrade() const;
-    void recordTradeResults(double pnl);
+    void recordTradeResult(double pnl);
     double getAccBal() const;
     double getPnL() const;
     int getTradesToday() const;

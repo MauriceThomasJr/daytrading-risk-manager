@@ -21,6 +21,8 @@ endif()
 # Other targets (executable, tests) will link against this.
 add_library(risk_manager_lib
     src/RiskManager.cpp
+    src/Account.cpp
+    src/Instrument.cpp
 )
 
 # Anyone who uses risk_manager_lib needs the include/ folder
@@ -45,6 +47,8 @@ FetchContent_MakeAvailable(Catch2)
 # Tests will go in tests/. We'll add a placeholder file in a moment.
 add_executable(tests
     tests/test_risk_manager.cpp
+    tests/test_instrument.cpp
+    tests/test_account.cpp
 )
 target_link_libraries(tests PRIVATE risk_manager_lib Catch2::Catch2WithMain)
 

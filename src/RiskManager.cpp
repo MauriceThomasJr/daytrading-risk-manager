@@ -23,7 +23,7 @@ bool RiskManager::canTakeNewTrade() const{
 
     return true;
 }
-void RiskManager::recordTradeResults(double pnl){
+void RiskManager::recordTradeResult(double pnl){
     dailyPnL_ += pnl;
     accountBalance_ += pnl;
     ++tradesToday_;

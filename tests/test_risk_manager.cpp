@@ -28,16 +28,16 @@ TEST_CASE("RiskManager respects max trade count", "[risk]") {
     RiskManager rm(100000.0, 0.01, 0.03, 2, 50);  // only 2 trades allowed
 
     REQUIRE(rm.canTakeNewTrade() == true);
-    rm.recordTradeResults(50.0);
+    rm.recordTradeResult(50.0);
     REQUIRE(rm.canTakeNewTrade() == true);
-    rm.recordTradeResults(50.0);
+    rm.recordTradeResult(50.0);
     REQUIRE(rm.canTakeNewTrade() == false);  // hit the cap
 }
 
 TEST_CASE("RiskManager updates state after trade", "[risk]") {
     RiskManager rm(100000.0, 0.01, 0.03, 5, 50);
 
-    rm.recordTradeResults(-100.0);
+    rm.recordTradeResult(-100.0);
 
     REQUIRE(rm.getAccBal() == 99900.0);
     REQUIRE(rm.getPnL() == -100.0);
