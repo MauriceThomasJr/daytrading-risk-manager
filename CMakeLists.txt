@@ -35,6 +35,7 @@ add_library(risk_manager_lib
 # on their header search path. PUBLIC means: this lib needs it
 # to compile, AND consumers also need it.
 target_include_directories(risk_manager_lib PUBLIC include)
+target_link_libraries(risk_manager_lib PUBLIC SQLiteCpp)
 
 # ---- The example executable ----
 add_executable(basic_usage examples/basic_usage.cpp)
@@ -48,7 +49,15 @@ FetchContent_Declare(
     GIT_TAG        v3.5.2     # pinned version, so builds are reproducible
 )
 FetchContent_MakeAvailable(Catch2)
-
+FetchContent_Declare(
+    SQLiteCpp
+    GIT_REPOSITORY https://github.com/SRombauts/SQLiteCpp.git
+    GIT_TAG        3.3.2
+)
+FetchContent_MakeAvailable(SQLiteCpp)
+if(TARGET SQLiteCpp)
+    target_compile_options(SQLiteCpp PUBLIC -include cstdint)
+endif()
 # ---- The test executable ----
 # Tests will go in tests/. We'll add a placeholder file in a moment.
 add_executable(tests

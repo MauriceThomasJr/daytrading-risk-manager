@@ -52,3 +52,28 @@ TEST_CASE("Order supports a range of valid sizes", "[order]") {
         REQUIRE(order.getSize() == 10);
     }
 }
+TEST_CASE("Order assigns a unique sequential ID", "[order]") {
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
+
+    Order a = Order::fromValidatedIntent(intent, 1);
+    Order b = Order::fromValidatedIntent(intent, 1);
+    Order c = Order::fromValidatedIntent(intent, 1);
+
+    REQUIRE(a.getId() != b.getId());
+    REQUIRE(b.getId() != c.getId());
+    REQUIRE(b.getId() == a.getId() + 1);
+    REQUIRE(c.getId() == b.getId() + 1);
+}
+
+TEST_CASE("Order timestamps its creation", "[order]") {
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
+
+    auto before = std::chrono::system_clock::now();
+    Order order = Order::fromValidatedIntent(intent, 1);
+    auto after = std::chrono::system_clock::now();
+
+    REQUIRE(order.getCreatedAt() >= before);
+    REQUIRE(order.getCreatedAt() <= after);
+}
