@@ -39,10 +39,13 @@
 *.out
 *.app
 
-# Build directories
+# Build artifacts
 build/
 Build/
 build-*/
+*.exe
+*.o
+*.obj
 
 # CMake generated files
 CMakeFiles/
@@ -60,6 +63,9 @@ compile_commands.json
 
 # vcpkg
 vcpkg_installed/
+
+# VS code
+.vscode/
 
 # debug information files
 *.dwo
