@@ -1,4 +1,5 @@
 #include "domain/Order.h"
+
 #include <atomic>
 
 namespace {
@@ -15,14 +16,40 @@ Order Order::fromValidatedIntent(const TradeIntent& intent, int size) {
                  std::chrono::system_clock::now());
 }
 
-// All existing getters stay exactly the same:
-Side Order::getSide() const { return intent_.getSide(); }
-const Instrument& Order::getInstrument() const { return intent_.getInstrument(); }
-double Order::getEntryPrice() const { return intent_.getEntryPrice(); }
-double Order::getStopPrice() const { return intent_.getStopPrice(); }
-std::optional<double> Order::getTargetPrice() const { return intent_.getTargetPrice(); }
-int Order::getSize() const { return size_; }
+Order Order::fromStorage(const TradeIntent& intent, int size,
+                         std::int64_t id,
+                         std::chrono::system_clock::time_point createdAt) {
+    return Order(intent, size, id, createdAt);
+}
 
-// Plus two new getters:
-std::int64_t Order::getId() const { return id_; }
-std::chrono::system_clock::time_point Order::getCreatedAt() const { return createdAt_; }
+Side Order::getSide() const {
+    return intent_.getSide();
+}
+
+const Instrument& Order::getInstrument() const {
+    return intent_.getInstrument();
+}
+
+double Order::getEntryPrice() const {
+    return intent_.getEntryPrice();
+}
+
+double Order::getStopPrice() const {
+    return intent_.getStopPrice();
+}
+
+std::optional<double> Order::getTargetPrice() const {
+    return intent_.getTargetPrice();
+}
+
+int Order::getSize() const {
+    return size_;
+}
+
+std::int64_t Order::getId() const {
+    return id_;
+}
+
+std::chrono::system_clock::time_point Order::getCreatedAt() const {
+    return createdAt_;
+}

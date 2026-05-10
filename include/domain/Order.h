@@ -8,8 +8,15 @@
 
 class Order {
 public:
-    // Factory: only way to construct an Order is from a validated intent.
+    // Factory for newly-created orders. Generates a fresh ID and captures
+    // the current time as createdAt.
     static Order fromValidatedIntent(const TradeIntent& intent, int size);
+
+    // Factory for orders loaded from persistent storage. Caller supplies
+    // the original ID and creation timestamp; nothing is generated.
+    static Order fromStorage(const TradeIntent& intent, int size,
+                             std::int64_t id,
+                             std::chrono::system_clock::time_point createdAt);
 
     Side getSide() const;
     const Instrument& getInstrument() const;
@@ -26,8 +33,8 @@ private:
 
     TradeIntent intent_;
     int size_;
-    std::int64_t id_;                                   
-    std::chrono::system_clock::time_point createdAt_; 
+    std::int64_t id_;
+    std::chrono::system_clock::time_point createdAt_;
 };
 
 #endif
