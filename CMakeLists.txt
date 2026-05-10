@@ -28,7 +28,8 @@ add_library(risk_manager_lib
     src/ChecklistItem.cpp        
     src/ChecklistTemplate.cpp    
     src/ChecklistGate.cpp
-    src/TradePipeline.cpp   
+    src/TradePipeline.cpp
+    src/InMemoryTradeJournal.cpp  
 )
 
 # Anyone who uses risk_manager_lib needs the include/ folder
@@ -69,7 +70,8 @@ add_executable(tests
     tests/test_checklist_item.cpp      
     tests/test_checklist_template.cpp    
     tests/test_checklist_gate.cpp
-    tests/test_trade_pipeline.cpp 
+    tests/test_trade_pipeline.cpp
+    tests/test_in_memory_journal.cpp 
 )
 target_link_libraries(tests PRIVATE risk_manager_lib Catch2::Catch2WithMain)
 
