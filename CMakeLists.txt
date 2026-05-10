@@ -23,6 +23,8 @@ add_library(risk_manager_lib
     src/RiskManager.cpp
     src/Account.cpp
     src/Instrument.cpp
+    src/TradeIntent.cpp
+    src/Order.cpp
 )
 
 # Anyone who uses risk_manager_lib needs the include/ folder
@@ -49,6 +51,8 @@ add_executable(tests
     tests/test_risk_manager.cpp
     tests/test_instrument.cpp
     tests/test_account.cpp
+    tests/test_trade_intent.cpp
+    tests/test_order.cpp
 )
 target_link_libraries(tests PRIVATE risk_manager_lib Catch2::Catch2WithMain)
 
