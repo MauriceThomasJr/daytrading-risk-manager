@@ -16,6 +16,7 @@ public:
 
 private:
     void ensureSchema();
+    
 
     mutable SQLite::Database db_;
 };

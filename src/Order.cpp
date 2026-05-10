@@ -22,6 +22,19 @@ Order Order::fromStorage(const TradeIntent& intent, int size,
     return Order(intent, size, id, createdAt);
 }
 
+void Order::seedNextOrderId(std::int64_t lastSeenId) {
+    // Raise the counter so the next generated ID is past lastSeenId.
+    std::int64_t desired = lastSeenId + 1;
+    std::int64_t current = nextOrderId.load();
+    while (current < desired) {
+        // compare_exchange_weak updates `current` to the latest value if
+        // the swap fails, so the loop converges.
+        if (nextOrderId.compare_exchange_weak(current, desired)) {
+            break;
+        }
+    }
+}
+
 Side Order::getSide() const {
     return intent_.getSide();
 }

@@ -1,5 +1,5 @@
 #include "journal/SqliteTradeJournal.h"
-
+#include "domain/Order.h"
 #include <chrono>
 #include <cstdint>
 
@@ -24,6 +24,14 @@ namespace {
 SqliteTradeJournal::SqliteTradeJournal(const std::string& dbPath)
     : db_(dbPath, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE) {
     ensureSchema();
+
+    // Seed the Order ID counter past whatever's already in the table,
+    // so new orders don't collide with persisted ones.
+    SQLite::Statement maxIdQuery(db_, "SELECT COALESCE(MAX(id), 0) FROM trades");
+    if (maxIdQuery.executeStep()) {
+        std::int64_t maxId = maxIdQuery.getColumn(0).getInt64();
+        Order::seedNextOrderId(maxId);
+    }
 }
 
 void SqliteTradeJournal::ensureSchema() {

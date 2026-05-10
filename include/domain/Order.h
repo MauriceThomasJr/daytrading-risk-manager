@@ -18,6 +18,10 @@ public:
                              std::int64_t id,
                              std::chrono::system_clock::time_point createdAt);
 
+    // Raise the next-ID counter to be at least lastSeenId + 1. Used at
+    // startup by persistent journals to avoid colliding with existing IDs.
+    static void seedNextOrderId(std::int64_t lastSeenId);
+
     Side getSide() const;
     const Instrument& getInstrument() const;
     double getEntryPrice() const;
