@@ -1,6 +1,7 @@
 #include "journal/SqliteTradeJournal.h"
 
 #include <chrono>
+#include <cstdint>
 
 namespace {
     void bindOptional(SQLite::Statement& stmt, int index, std::optional<double> value) {
@@ -63,7 +64,7 @@ void SqliteTradeJournal::record(const Order& order) {
     stmt.bind(7, order.getStopPrice());
     bindOptional(stmt, 8, order.getTargetPrice());
     stmt.bind(9, order.getSize());
-    stmt.bind(10, static_cast<long long>(createdNs));
+    stmt.bind(10, static_cast<std::int64_t>(createdNs));
 
     stmt.exec();
 }
