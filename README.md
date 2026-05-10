@@ -1,5 +1,7 @@
 # Daytrading Risk Manager
 
+[![CI](https://github.com/yourusername/daytrading-risk-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/daytrading-risk-manager/actions/workflows/ci.yml)
+
 A C++17 trading discipline engine that gates orders behind a user-defined
 checklist and configurable risk rules. Built as a passion project and
 portfolio piece exploring modern C++ design, clean architecture, and
