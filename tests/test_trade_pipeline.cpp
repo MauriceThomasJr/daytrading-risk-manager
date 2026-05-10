@@ -9,6 +9,7 @@
 #include "domain/TradeIntent.h"
 #include "domain/Side.h"
 #include "risk/RiskManager.h"
+#include "journal/InMemoryTradeJournal.h"
 
 // ---------- Helpers to keep individual tests focused ----------
 
@@ -33,7 +34,8 @@ TEST_CASE("TradePipeline accepts a valid trade", "[pipeline]") {
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
-    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5));
+    InMemoryTradeJournal journal;
+    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal);
 
     auto result = pipeline.submit(intent, account, makeTemplate(), makeAllChecked());
 
@@ -50,7 +52,8 @@ TEST_CASE("TradePipeline rejects when checklist is incomplete", "[pipeline]") {
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
-    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5));
+    InMemoryTradeJournal journal;
+    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal);
 
     SECTION("One item unchecked") {
         ChecklistResponse responses;
@@ -93,7 +96,8 @@ TEST_CASE("TradePipeline rejects when risk rules block new trades", "[pipeline]"
 
     SECTION("Max trade count reached") {
         // Only 1 trade allowed per day
-        TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 1));
+        InMemoryTradeJournal journal;
+        TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 1), journal);
 
         // Burn through the cap
         account.recordTradeResult(50.0);
@@ -108,7 +112,8 @@ TEST_CASE("TradePipeline rejects when risk rules block new trades", "[pipeline]"
 
     SECTION("Daily loss limit hit") {
         // 1% max daily loss = $1,000 on $100k
-        TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.01, 100));
+        InMemoryTradeJournal journal;
+        TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.01, 100), journal);
 
         // Drop into the lockout zone
         account.recordTradeResult(-2000.0);
@@ -129,7 +134,8 @@ TEST_CASE("TradePipeline rejects when position size would be zero", "[pipeline]"
     // Even one contract is too big — size = 0.
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
-    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5));
+    InMemoryTradeJournal journal;
+    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal);
 
     auto result = pipeline.submit(intent, account, makeTemplate(), makeAllChecked());
 
@@ -147,7 +153,8 @@ TEST_CASE("TradePipeline checks gates in correct order", "[pipeline]") {
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
-    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5));
+    InMemoryTradeJournal journal;
+    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal);
 
     SECTION("Checklist failure reported first, even when risk would also fail") {
         ChecklistResponse responses;  // empty — checklist will fail
@@ -164,7 +171,8 @@ TEST_CASE("TradePipeline checks gates in correct order", "[pipeline]") {
 
 TEST_CASE("TradePipeline sizes correctly across instruments", "[pipeline]") {
     Account account(100000.0);
-    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5));
+    InMemoryTradeJournal journal;
+    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal);
 
     SECTION("ES at $50/point: 1 contract") {
         Instrument es("ES", 50.0, 0.25);
@@ -184,5 +192,30 @@ TEST_CASE("TradePipeline sizes correctly across instruments", "[pipeline]") {
 
         REQUIRE(result.accepted == true);
         REQUIRE(result.order->getSize() == 10);
+    }
+}
+
+TEST_CASE("TradePipeline records accepted trades in the journal", "[pipeline]") {
+    Account account(100000.0);
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
+
+    InMemoryTradeJournal journal;
+    TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal);
+
+    SECTION("Accepted trade is journaled") {
+        auto result = pipeline.submit(intent, account, makeTemplate(), makeAllChecked());
+
+        REQUIRE(result.accepted);
+        REQUIRE(journal.size() == 1);
+        REQUIRE(journal.recentTrades(1)[0].getId() == result.order->getId());
+    }
+
+    SECTION("Rejected trade is not journaled") {
+        ChecklistResponse incomplete;  // empty — checklist will fail
+        auto result = pipeline.submit(intent, account, makeTemplate(), incomplete);
+
+        REQUIRE(result.accepted == false);
+        REQUIRE(journal.size() == 0);
     }
 }

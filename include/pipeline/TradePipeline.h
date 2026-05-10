@@ -8,18 +8,21 @@
 #include "domain/TradeIntent.h"
 #include "risk/RiskManager.h"
 #include "pipeline/TradeSubmissionResult.h"
+#include "journal/ITradeJournal.h"
 
 class TradePipeline {
 public:
-    TradePipeline(ChecklistGate gate, RiskManager rules);
+    TradePipeline(ChecklistGate gate, RiskManager rules, ITradeJournal& journal);
 
     TradeSubmissionResult submit(const TradeIntent& intent,
                                  Account& account,
                                  const ChecklistTemplate& tmpl,
                                  const ChecklistResponse& responses) const;
+
 private:
     ChecklistGate gate_;
     RiskManager rules_;
+    ITradeJournal& journal_;
 };
 
 #endif

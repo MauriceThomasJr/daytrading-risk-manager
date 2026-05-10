@@ -1,7 +1,7 @@
 #include "pipeline/TradePipeline.h"
 
-TradePipeline::TradePipeline(ChecklistGate gate, RiskManager rules)
-    : gate_(gate), rules_(rules) {}
+TradePipeline::TradePipeline(ChecklistGate gate, RiskManager rules, ITradeJournal& journal)
+    : gate_(gate), rules_(rules), journal_(journal) {}
 
 TradeSubmissionResult TradePipeline::submit(const TradeIntent& intent,
                                             Account& account,
@@ -17,13 +17,13 @@ TradeSubmissionResult TradePipeline::submit(const TradeIntent& intent,
         return result;
     }
 
-    // Gate 2: Risk rules — can we trade at all?
+    // Gate 2: Risk rules
     if (!rules_.canTakeNewTrade(account)) {
         result.rejectionReasons.push_back("Risk rules block new trades");
         return result;
     }
 
-    // Sizing: how big should it be?
+    // Sizing
     int size = rules_.calculatePositionSize(
         account,
         intent.getInstrument(),
@@ -35,8 +35,9 @@ TradeSubmissionResult TradePipeline::submit(const TradeIntent& intent,
         return result;
     }
 
-    // All gates passed — promote the intent to a real order
+    // All gates passed — build the order and record it
     result.accepted = true;
     result.order = Order::fromValidatedIntent(intent, size);
+    journal_.record(*result.order);
     return result;
 }
