@@ -5,6 +5,16 @@
 Account::Account(std::string accountId, double startingBalance)
     : accountId_(std::move(accountId)), balance_(startingBalance) {}
 
+Account Account::fromStorage(std::string accountId,
+                             double balance,
+                             double dailyPnL,
+                             int tradesToday) {
+    Account a(std::move(accountId), balance);
+    a.dailyPnL_ = dailyPnL;
+    a.tradesToday_ = tradesToday;
+    return a;
+}    
+
 const std::string& Account::getAccountId() const {
     return accountId_;
 }

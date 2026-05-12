@@ -7,6 +7,13 @@ class Account {
 public:
     Account(std::string accountId, double startingBalance);
 
+    // Factory for loading from persistent storage. Sets all fields directly,
+    // bypassing the usual "balance = starting, pnl = 0, trades = 0" defaults.
+    static Account fromStorage(std::string accountId,
+                               double balance,
+                               double dailyPnL,
+                               int tradesToday);
+
     const std::string& getAccountId() const;
     double getBalance() const;
     double getDailyPnL() const;
