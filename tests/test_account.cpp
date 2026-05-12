@@ -1,8 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include "domain/Account.h"
 
+TEST_CASE("Account stores its ID", "[account]") {
+    Account account("alice", 10000.0);
+    REQUIRE(account.getAccountId() == "alice");
+}
+
 TEST_CASE("Account starts with given balance and zero stats", "[account]") {
-    Account account(10000.0);
+    Account account("test-account", 10000.0);
 
     REQUIRE(account.getBalance() == 10000.0);
     REQUIRE(account.getDailyPnL() == 0.0);
@@ -10,7 +15,7 @@ TEST_CASE("Account starts with given balance and zero stats", "[account]") {
 }
 
 TEST_CASE("Account updates state when trade is recorded", "[account]") {
-    Account account(10000.0);
+    Account account("test-account", 10000.0);
 
     SECTION("Winning trade increases balance and P&L") {
         account.recordTradeResult(150.0);
@@ -31,31 +36,30 @@ TEST_CASE("Account updates state when trade is recorded", "[account]") {
         account.recordTradeResult(100.0);
         account.recordTradeResult(-30.0);
 
-        REQUIRE(account.getBalance() == 10020.0);    // 10000 - 50 + 100 - 30
+        REQUIRE(account.getBalance() == 10020.0);
         REQUIRE(account.getDailyPnL() == 20.0);
         REQUIRE(account.getTradesToday() == 3);
     }
 }
 
 TEST_CASE("Account resetDay clears daily stats but preserves balance", "[account]") {
-    Account account(10000.0);
+    Account account("test-account", 10000.0);
     account.recordTradeResult(-200.0);
     account.recordTradeResult(50.0);
 
-    // Sanity check before reset
     REQUIRE(account.getBalance() == 9850.0);
     REQUIRE(account.getDailyPnL() == -150.0);
     REQUIRE(account.getTradesToday() == 2);
 
     account.resetDay();
 
-    REQUIRE(account.getBalance() == 9850.0);          // unchanged
-    REQUIRE(account.getDailyPnL() == 0.0);            // cleared
-    REQUIRE(account.getTradesToday() == 0);           // cleared
+    REQUIRE(account.getBalance() == 9850.0);
+    REQUIRE(account.getDailyPnL() == 0.0);
+    REQUIRE(account.getTradesToday() == 0);
 }
 
 TEST_CASE("Account zero-pnl trade still counts as a trade", "[account]") {
-    Account account(10000.0);
+    Account account("test-account", 10000.0);
     account.recordTradeResult(0.0);
 
     REQUIRE(account.getBalance() == 10000.0);

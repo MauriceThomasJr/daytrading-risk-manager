@@ -4,7 +4,7 @@
 #include "domain/Instrument.h"
 
 TEST_CASE("RiskManager calculates position size correctly", "[risk]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0); 
     Instrument es("ES", 50.0, 0.25);
     RiskManager rules(0.01, 0.03, 5);  // 1% risk, 3% max loss, 5 trades
 
@@ -25,7 +25,7 @@ TEST_CASE("RiskManager calculates position size correctly", "[risk]") {
 }
 
 TEST_CASE("RiskManager respects max trade count", "[risk]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0); 
     RiskManager rules(0.01, 0.03, 2);  // only 2 trades allowed
 
     REQUIRE(rules.canTakeNewTrade(account) == true);
@@ -36,7 +36,7 @@ TEST_CASE("RiskManager respects max trade count", "[risk]") {
 }
 
 TEST_CASE("RiskManager respects max daily loss", "[risk]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0); 
     RiskManager rules(0.01, 0.03, 100);  // big trade cap, 3% daily loss limit
 
     REQUIRE(rules.canTakeNewTrade(account) == true);
@@ -52,7 +52,7 @@ TEST_CASE("RiskManager respects max daily loss", "[risk]") {
 }
 
 TEST_CASE("RiskManager works with different instruments", "[risk]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0); 
     RiskManager rules(0.01, 0.03, 5);
 
     SECTION("ES at $50/point: 20-point stop = 1 contract") {

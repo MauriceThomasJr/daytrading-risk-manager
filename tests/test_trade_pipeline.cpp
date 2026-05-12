@@ -31,7 +31,7 @@ static ChecklistResponse makeAllChecked() {
 // ---------- Tests ----------
 
 TEST_CASE("TradePipeline accepts a valid trade", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -50,7 +50,7 @@ TEST_CASE("TradePipeline accepts a valid trade", "[pipeline]") {
 }
 
 TEST_CASE("TradePipeline rejects when checklist is incomplete", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -93,7 +93,7 @@ TEST_CASE("TradePipeline rejects when checklist is incomplete", "[pipeline]") {
 }
 
 TEST_CASE("TradePipeline rejects when risk rules block new trades", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -127,7 +127,7 @@ TEST_CASE("TradePipeline rejects when risk rules block new trades", "[pipeline]"
 }
 
 TEST_CASE("TradePipeline rejects when position size would be zero", "[pipeline]") {
-    Account account(1000.0);
+    Account account("test-account", 1000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -144,7 +144,7 @@ TEST_CASE("TradePipeline rejects when position size would be zero", "[pipeline]"
 }
 
 TEST_CASE("TradePipeline checks gates in correct order", "[pipeline]") {
-    Account account(1000.0);
+    Account account("test-account", 1000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -164,7 +164,7 @@ TEST_CASE("TradePipeline checks gates in correct order", "[pipeline]") {
 }
 
 TEST_CASE("TradePipeline sizes correctly across instruments", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     InMemoryTradeJournal journal;
     MockBrokerAdapter broker;
     TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 5), journal, broker);
@@ -191,7 +191,7 @@ TEST_CASE("TradePipeline sizes correctly across instruments", "[pipeline]") {
 }
 
 TEST_CASE("TradePipeline records accepted trades in the journal", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -219,7 +219,7 @@ TEST_CASE("TradePipeline records accepted trades in the journal", "[pipeline]") 
 // ---------- New tests for broker integration ----------
 
 TEST_CASE("TradePipeline sends accepted trades to the broker", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -235,7 +235,7 @@ TEST_CASE("TradePipeline sends accepted trades to the broker", "[pipeline]") {
 }
 
 TEST_CASE("TradePipeline does not contact broker when gates reject", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -262,7 +262,7 @@ TEST_CASE("TradePipeline does not contact broker when gates reject", "[pipeline]
 }
 
 TEST_CASE("TradePipeline propagates broker rejection", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 
@@ -281,7 +281,7 @@ TEST_CASE("TradePipeline propagates broker rejection", "[pipeline]") {
 }
 
 TEST_CASE("TradePipeline does not journal broker-rejected trades", "[pipeline]") {
-    Account account(100000.0);
+    Account account("test-account", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     TradeIntent intent(Side::Long, es, 7000.0, 6980.0);
 

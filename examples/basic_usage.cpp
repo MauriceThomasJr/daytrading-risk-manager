@@ -58,7 +58,7 @@ int main() {
     // -----------------------------------------------------------------
     printSection("Setup");
 
-    Account account(100000.0);
+    Account account("demo", 100000.0);
     Instrument es("ES", 50.0, 0.25);
     RiskManager rules(0.01, 0.03, 5);  // 1% per trade, 3% daily loss, 5 trades/day
 
