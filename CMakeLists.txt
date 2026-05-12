@@ -31,7 +31,8 @@ add_library(risk_manager_lib
     src/TradePipeline.cpp
     src/InMemoryTradeJournal.cpp
     src/SqliteTradeJournal.cpp
-    src/MockBrokerAdapter.cpp 
+    src/MockBrokerAdapter.cpp
+    src/InMemoryAccountStore.cpp
 )
 
 # Anyone who uses risk_manager_lib needs the include/ folder
@@ -76,6 +77,7 @@ add_executable(tests
     tests/test_in_memory_journal.cpp
     tests/test_sqlite_journal.cpp
     tests/test_mock_broker_adapter.cpp
+    tests/test_in_memory_account_store.cpp  
 )
 target_link_libraries(tests PRIVATE risk_manager_lib Catch2::Catch2WithMain)
 
