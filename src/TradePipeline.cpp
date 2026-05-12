@@ -1,7 +1,8 @@
 #include "pipeline/TradePipeline.h"
 
-TradePipeline::TradePipeline(ChecklistGate gate, RiskManager rules, ITradeJournal& journal)
-    : gate_(gate), rules_(rules), journal_(journal) {}
+TradePipeline::TradePipeline(ChecklistGate gate, RiskManager rules,
+                             ITradeJournal& journal, IBrokerAdapter& broker)
+    : gate_(gate), rules_(rules), journal_(journal), broker_(broker) {}
 
 TradeSubmissionResult TradePipeline::submit(const TradeIntent& intent,
                                             Account& account,
@@ -35,9 +36,20 @@ TradeSubmissionResult TradePipeline::submit(const TradeIntent& intent,
         return result;
     }
 
-    // All gates passed — build the order and record it
+    // Build the order
+    Order order = Order::fromValidatedIntent(intent, size);
+
+    // Send to broker first — if it rejects, we don't journal a non-event
+    BrokerResponse brokerResp = broker_.send(order);
+    if (!brokerResp.accepted) {
+        result.rejectionReasons.push_back(
+            "Broker rejected: " + brokerResp.rejectionReason.value_or("unknown"));
+        return result;
+    }
+
+    // Broker accepted — record it
     result.accepted = true;
-    result.order = Order::fromValidatedIntent(intent, size);
-    journal_.record(*result.order);
+    result.order = order;
+    journal_.record(order);
     return result;
 }

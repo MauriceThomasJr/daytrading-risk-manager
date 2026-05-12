@@ -19,6 +19,7 @@
 #include "domain/Side.h"
 #include "risk/RiskManager.h"
 #include "journal/SqliteTradeJournal.h"
+#include "broker/MockBrokerAdapter.h"
 
 #include <iostream>
 #include <iomanip>
@@ -70,7 +71,10 @@ int main() {
     // Persistent journal. File appears in the working directory.
     SqliteTradeJournal journal("trades.db");
 
-    TradePipeline pipeline(ChecklistGate{}, rules, journal);
+    MockBrokerAdapter broker;
+
+    TradePipeline pipeline(ChecklistGate{}, rules, journal, broker);
+    std::cout << "Trades sent to broker: " << broker.sentCount() << "\n";
 
     std::cout << "Account starting balance: $" << account.getBalance() << "\n";
     std::cout << "Instrument: " << es.getSymbol()
