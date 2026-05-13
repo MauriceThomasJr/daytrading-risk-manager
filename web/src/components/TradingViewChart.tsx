@@ -17,41 +17,54 @@ export function TradingViewChart({
     if (!containerRef.current) return
 
     // Clear any previous widget when symbol changes.
-    containerRef.current.innerHTML =
-      '<div class="tradingview-widget-container__widget" style="height: 100%; width: 100%;"></div>'
+    containerRef.current.innerHTML = ""
 
-    const script = document.createElement("script")
-    script.src =
-      "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
-    script.type = "text/javascript"
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol,
-      interval,
-      timezone: "America/New_York",
-      theme: "light",
-      style: "1",
-      locale: "en",
-      allow_symbol_change: true,
-      withdateranges: true,
-      hide_side_toolbar: false,
-      details: false,
-      hotlist: false,
-      calendar: false,
-      support_host: "https://www.tradingview.com",
-    })
+    // The widget script looks for a sibling div with this exact class.
+    const widgetDiv = document.createElement("div")
+    widgetDiv.className = "tradingview-widget-container__widget"
+    widgetDiv.style.height = "100%"
+    widgetDiv.style.width = "100%"
+    containerRef.current.appendChild(widgetDiv)
 
-    containerRef.current.appendChild(script)
+    // Delay script injection by one tick so the container's height is fully
+    // applied to the DOM before TradingView measures it.
+    const timeoutId = setTimeout(() => {
+      if (!containerRef.current) return
+
+      const script = document.createElement("script")
+      script.src =
+        "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"
+      script.type = "text/javascript"
+      script.async = true
+      script.innerHTML = JSON.stringify({
+        width: "100%",
+        height: height,    // pixel number, not percentage string
+        symbol,
+        interval,
+        timezone: "America/New_York",
+        theme: "light",
+        style: "1",
+        locale: "en",
+        allow_symbol_change: true,
+        withdateranges: true,
+        hide_side_toolbar: false,
+        details: false,
+        hotlist: false,
+        calendar: false,
+        support_host: "https://www.tradingview.com",
+        })
+
+      containerRef.current.appendChild(script)
+    }, 0)
+
+    return () => clearTimeout(timeoutId)
   }, [symbol, interval])
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-      <div
-        className="tradingview-widget-container"
-        ref={containerRef}
-        style={{ height: `${height}px`, width: "100%" }}
-      />
-    </div>
+    <div
+      className="tradingview-widget-container"
+      ref={containerRef}
+      style={{ height: `${height}px`, width: "100%" }}
+    />
   )
 }

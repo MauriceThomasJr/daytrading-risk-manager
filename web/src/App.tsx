@@ -65,21 +65,30 @@ function App() {
   
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-5xl space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Daytrading Risk Manager
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Pre-trade discipline gate over the local API.
-          </p>
-        </div>
+  <div className="min-h-screen bg-gray-50">
+    <div className="border-b border-gray-200 bg-white px-6 py-3">
+      <h1 className="text-lg font-bold text-gray-900">
+        Daytrading Risk Manager
+      </h1>
+      <p className="text-xs text-gray-600">
+        Pre-trade discipline gate over the local API.
+      </p>
+    </div>
 
-        <TradingViewChart symbol={tvSymbol} interval="5" height={500} />
-        <p className="text-xs text-gray-500 px-1">
+    <div className="flex flex-col lg:flex-row gap-4 p-4">
+      {/* Chart column — dominates on wide screens */}
+      {/* Chart column — dominates on wide screens */}
+      <div className="lg:flex-1 lg:min-w-0">
+        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+          <TradingViewChart symbol={tvSymbol} interval="5" height={720} />
+        </div>
+        <p className="mt-1 px-1 text-xs text-gray-500">
           Showing {getProxyNote(trade.instrument.symbol)}
         </p>
+      </div>
+
+      {/* Control sidebar — fixed width on wide screens */}
+      <div className="lg:w-96 lg:flex-shrink-0 space-y-3">
         <AccountPanel
           accountId={accountId}
           onAccountIdChange={setAccountId}
@@ -105,7 +114,7 @@ function App() {
         <RecentTrades />
       </div>
     </div>
-  )
+  </div>
+)
 }
-
 export default App
