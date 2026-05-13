@@ -48,14 +48,16 @@ target_link_libraries(risk_manager_lib PUBLIC SQLiteCpp)
 add_executable(basic_usage examples/basic_usage.cpp)
 target_link_libraries(basic_usage PRIVATE risk_manager_lib)
 # ---- The HTTP server executable ----
-add_executable(http_server src/main_http.cpp)
+add_executable(http_server
+    src/main_http.cpp
+    src/HttpServer.cpp       
+)
 target_link_libraries(http_server
     PRIVATE
         risk_manager_lib
         httplib::httplib
         nlohmann_json::nlohmann_json
 )
-
 # ---- Catch2 (fetched automatically) ----
 include(FetchContent)
 FetchContent_Declare(

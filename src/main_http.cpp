@@ -1,30 +1,31 @@
 // src/main_http.cpp
 //
-// HTTP server entry point. Exposes the trade pipeline over REST.
+// HTTP server entry point.
+// Loads accounts from a SQLite database and exposes them over REST.
 
-#include <httplib.h>
-#include <nlohmann/json.hpp>
+#include "http/HttpServer.h"
+#include "storage/SqliteAccountStore.h"
+#include "domain/Account.h"
+
 #include <iostream>
 
-using json = nlohmann::json;
-
 int main() {
-    httplib::Server server;
+    // Use a file-backed database so accounts persist across runs.
+    SqliteAccountStore accountStore("accounts.db");
 
-    server.Get("/health", [](const httplib::Request&, httplib::Response& res) {
-        json response = {
-            {"status", "ok"},
-            {"service", "daytrading-risk-manager"}
-        };
-        res.set_content(response.dump(), "application/json");
-    });
+    // Seed with a couple of demo accounts if they don't already exist.
+    // In a real product, accounts would be created via a registration endpoint.
+    if (!accountStore.exists("alice")) {
+        Account alice("alice", 50000.0);
+        alice.recordTradeResult(-100.0);
+        accountStore.save(alice);
+    }
+    if (!accountStore.exists("bob")) {
+        accountStore.save(Account("bob", 100000.0));
+    }
 
-    const std::string host = "0.0.0.0";
-    const int port = 8080;
+    HttpServer server(accountStore);
+    server.listen("0.0.0.0", 8080);
 
-    std::cout << "Server listening on http://" << host << ":" << port << "\n";
-    std::cout << "Try: curl http://localhost:" << port << "/health\n";
-
-    server.listen(host, port);
     return 0;
 }
