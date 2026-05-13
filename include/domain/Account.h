@@ -7,8 +7,6 @@ class Account {
 public:
     Account(std::string accountId, double startingBalance);
 
-    // Factory for loading from persistent storage. Sets all fields directly,
-    // bypassing the usual "balance = starting, pnl = 0, trades = 0" defaults.
     static Account fromStorage(std::string accountId,
                                double balance,
                                double dailyPnL,
@@ -19,7 +17,13 @@ public:
     double getDailyPnL() const;
     int getTradesToday() const;
 
+    // Called when a position is opened. Only increments trade count.
+    void recordTradeOpened();
+
+    // Called when a position closes with a realized P&L.
+    // Updates balance and daily P&L; does NOT touch trade count.
     void recordTradeResult(double pnl);
+
     void resetDay();
 
 private:

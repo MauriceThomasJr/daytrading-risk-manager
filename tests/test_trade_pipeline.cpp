@@ -102,7 +102,7 @@ TEST_CASE("TradePipeline rejects when risk rules block new trades", "[pipeline]"
         MockBrokerAdapter broker;
         TradePipeline pipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 1), journal, broker);
 
-        account.recordTradeResult(50.0);
+        account.recordTradeOpened(); 
 
         auto result = pipeline.submit(intent, account, makeTemplate(), makeAllChecked());
 
@@ -255,7 +255,7 @@ TEST_CASE("TradePipeline does not contact broker when gates reject", "[pipeline]
         TradePipeline strictPipeline(ChecklistGate{}, RiskManager(0.01, 0.03, 1),
                                      localJournal, localBroker);
 
-        account.recordTradeResult(0.0);  // burn the one allowed trade
+        account.recordTradeOpened();  // burn the one allowed trade slot
         strictPipeline.submit(intent, account, makeTemplate(), makeAllChecked());
         REQUIRE(localBroker.sentCount() == 0);
     }

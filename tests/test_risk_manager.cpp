@@ -29,9 +29,9 @@ TEST_CASE("RiskManager respects max trade count", "[risk]") {
     RiskManager rules(0.01, 0.03, 2);  // only 2 trades allowed
 
     REQUIRE(rules.canTakeNewTrade(account) == true);
-    account.recordTradeResult(50.0);
+    account.recordTradeOpened();
     REQUIRE(rules.canTakeNewTrade(account) == true);
-    account.recordTradeResult(50.0);
+    account.recordTradeOpened();
     REQUIRE(rules.canTakeNewTrade(account) == false);  // hit the cap
 }
 

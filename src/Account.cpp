@@ -13,7 +13,7 @@ Account Account::fromStorage(std::string accountId,
     a.dailyPnL_ = dailyPnL;
     a.tradesToday_ = tradesToday;
     return a;
-}    
+}
 
 const std::string& Account::getAccountId() const {
     return accountId_;
@@ -31,10 +31,15 @@ int Account::getTradesToday() const {
     return tradesToday_;
 }
 
+void Account::recordTradeOpened() {
+    ++tradesToday_;
+}
+
 void Account::recordTradeResult(double pnl) {
     balance_ += pnl;
     dailyPnL_ += pnl;
-    ++tradesToday_;
+    // Note: trade count is no longer incremented here.
+    // recordTradeOpened() handles that at order acceptance time.
 }
 
 void Account::resetDay() {

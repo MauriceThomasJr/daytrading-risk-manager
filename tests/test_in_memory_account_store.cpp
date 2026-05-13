@@ -13,6 +13,7 @@ TEST_CASE("InMemoryAccountStore saves and loads an account", "[account_store]") 
     InMemoryAccountStore store;
 
     Account original("alice", 50000.0);
+    original.recordTradeOpened();
     original.recordTradeResult(-100.0);
     store.save(original);
 

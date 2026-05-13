@@ -26,6 +26,7 @@ TEST_CASE("SqliteAccountStore saves and loads an account", "[sqlite_account_stor
     SqliteAccountStore store(":memory:");
 
     Account alice("alice", 50000.0);
+    alice.recordTradeOpened();
     alice.recordTradeResult(-100.0);
     store.save(alice);
 
@@ -59,6 +60,7 @@ TEST_CASE("SqliteAccountStore save overwrites existing accounts", "[sqlite_accou
     store.save(Account("alice", 50000.0));
 
     Account updated("alice", 75000.0);
+    updated.recordTradeOpened();
     updated.recordTradeResult(-500.0);
     store.save(updated);
 
@@ -76,6 +78,8 @@ TEST_CASE("SqliteAccountStore persists across reopens", "[sqlite_account_store]"
     {
         SqliteAccountStore writer(temp.path);
         Account alice("alice", 50000.0);
+        alice.recordTradeOpened();
+        alice.recordTradeOpened();
         alice.recordTradeResult(-200.0);
         alice.recordTradeResult(50.0);
         writer.save(alice);

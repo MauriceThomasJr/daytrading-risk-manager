@@ -50,6 +50,7 @@ TradeSubmissionResult TradePipeline::submit(const TradeIntent& intent,
     // Broker accepted — record it
     result.accepted = true;
     result.order = order;
+    account.recordTradeOpened();    // ← count it as an open position
     journal_.record(order);
     return result;
 }
