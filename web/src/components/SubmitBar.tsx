@@ -28,10 +28,13 @@ export function SubmitBar({
     onSuccess: (data) => {
       // Refresh the account if the trade was accepted (the count went up).
       if (data.accepted) {
-        queryClient.invalidateQueries({
-          queryKey: ["account", accountId],
-        })
-      }
+    queryClient.invalidateQueries({
+      queryKey: ["account", accountId],
+    })
+    queryClient.invalidateQueries({
+      queryKey: ["recentTrades"],
+            })
+        }
     },
   })
 

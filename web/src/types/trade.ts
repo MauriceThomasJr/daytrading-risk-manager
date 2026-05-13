@@ -49,3 +49,6 @@ export interface TradeResult {
   account_id?: string
   template_id?: string
 }
+export interface TradesListResponse {
+  trades: OrderResponse[]
+}

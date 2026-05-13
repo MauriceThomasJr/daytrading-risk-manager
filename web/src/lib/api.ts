@@ -28,3 +28,14 @@ export async function submitTrade(body: TradeRequest): Promise<TradeResult> {
   // not thrown errors. Only true network failures throw.
   return res.json()
 }
+import type { TradesListResponse } from "@/types/trade"
+
+export async function fetchRecentTrades(limit: number = 10): Promise<TradesListResponse> {
+  const res = await fetch(`${API_BASE}/trades?limit=${limit}`)
+
+  if (!res.ok) {
+    throw new Error(`Server returned ${res.status}`)
+  }
+
+  return res.json()
+}

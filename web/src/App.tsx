@@ -3,6 +3,7 @@ import { AccountPanel } from "@/components/AccountPanel"
 import { ChecklistPanel } from "@/components/ChecklistPanel"
 import { SubmitBar } from "@/components/SubmitBar"
 import { TradeForm } from "@/components/TradeForm"
+import { RecentTrades } from "@/components/RecentTrades"
 
 import type {
   TradeFormState,
@@ -63,6 +64,7 @@ function App() {
           trade={trade}
           responses={responses}
         />
+        <RecentTrades />
       </div>
     </div>
   )
