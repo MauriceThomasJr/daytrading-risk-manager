@@ -3,8 +3,14 @@ import { useQuery } from "@tanstack/react-query"
 import { fetchAccount } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
-export function AccountPanel() {
-  const [accountId, setAccountId] = useState("alice")
+interface AccountPanelProps {
+  accountId: string
+  onAccountIdChange: (id: string) => void
+}
+
+export function AccountPanel({ accountId, onAccountIdChange }: AccountPanelProps) {
+  // "loaded" tracks which ID has actually been Loaded (vs being typed).
+  // This way, typing in the box doesn't refetch on every keystroke.
   const [loadedId, setLoadedId] = useState<string | null>(null)
 
   const query = useQuery({
@@ -27,13 +33,10 @@ export function AccountPanel() {
           id="account-id"
           type="text"
           value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
+          onChange={(e) => onAccountIdChange(e.target.value)}
           className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
         />
-        <Button
-          size="sm"
-          onClick={() => setLoadedId(accountId.trim())}
-        >
+        <Button size="sm" onClick={() => setLoadedId(accountId.trim())}>
           Load
         </Button>
       </div>

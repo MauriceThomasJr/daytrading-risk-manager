@@ -1,7 +1,9 @@
 import { useState } from "react"
 import { AccountPanel } from "@/components/AccountPanel"
 import { ChecklistPanel } from "@/components/ChecklistPanel"
+import { SubmitBar } from "@/components/SubmitBar"
 import { TradeForm } from "@/components/TradeForm"
+
 import type {
   TradeFormState,
   ChecklistResponses,
@@ -23,6 +25,7 @@ const DEFAULT_TRADE: TradeFormState = {
 }
 
 function App() {
+  const [accountId, setAccountId] = useState("alice")
   const [templateId, setTemplateId] = useState("daily-es")
   const [responses, setResponses] = useState<ChecklistResponses>({})
   const [trade, setTrade] = useState<TradeFormState>(DEFAULT_TRADE)
@@ -39,7 +42,10 @@ function App() {
           </p>
         </div>
 
-        <AccountPanel />
+        <AccountPanel
+          accountId={accountId}
+          onAccountIdChange={setAccountId}
+        />
 
         <ChecklistPanel
           templateId={templateId}
@@ -50,6 +56,13 @@ function App() {
         />
 
         <TradeForm state={trade} onChange={setTrade} />
+
+        <SubmitBar
+          accountId={accountId}
+          templateId={templateId}
+          trade={trade}
+          responses={responses}
+        />
       </div>
     </div>
   )

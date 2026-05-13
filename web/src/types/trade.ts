@@ -20,3 +20,32 @@ export interface ChecklistItem {
   id: string
   prompt: string
 }
+export interface TradeRequest {
+  account_id: string
+  template_id: string
+  side: Side
+  entry_price: number
+  stop_price: number
+  target_price?: number
+  instrument: Instrument
+  checklist_responses: ChecklistResponses
+}
+
+export interface OrderResponse {
+  id: number
+  side: Side
+  size: number
+  symbol: string
+  entry_price: number
+  stop_price: number
+  target_price?: number
+}
+
+export interface TradeResult {
+  accepted: boolean
+  order?: OrderResponse
+  rejection_reasons?: string[]
+  error?: string
+  account_id?: string
+  template_id?: string
+}
