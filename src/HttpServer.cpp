@@ -88,10 +88,12 @@ void writeError(httplib::Response& res, int status,
 
 HttpServer::HttpServer(IAccountStore& accountStore,
                        IChecklistTemplateStore& templateStore,
-                       TradePipeline& pipeline)
+                       TradePipeline& pipeline,
+                       ITradeJournal& journal)
     : accountStore_(accountStore),
       templateStore_(templateStore),
-      pipeline_(pipeline) {
+      pipeline_(pipeline),
+      journal_(journal) {
     registerRoutes();
 }
 
@@ -207,6 +209,30 @@ void HttpServer::registerRoutes() {
         } catch (const std::exception& e) {
             writeError(res, 500, std::string("Internal server error: ") + e.what());
         }
+    });
+    // ----- GET /trades?limit=N -----
+    server_.Get("/trades",
+                [this](const httplib::Request& req, httplib::Response& res) {
+        // Default to 10 if no limit is provided.
+        int limit = 10;
+        if (req.has_param("limit")) {
+            try {
+                limit = std::stoi(req.get_param_value("limit"));
+            } catch (const std::exception&) {
+                writeError(res, 400, "Invalid limit parameter");
+                return;
+            }
+        }
+
+        auto trades = journal_.recentTrades(limit);
+
+        json tradeArray = json::array();
+        for (const auto& order : trades) {
+            tradeArray.push_back(orderToJson(order));
+        }
+
+        json response = {{"trades", tradeArray}};
+        res.set_content(response.dump(), "application/json");
     });
 }
 

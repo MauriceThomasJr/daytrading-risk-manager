@@ -51,7 +51,7 @@ int main() {
     seedTemplate(templateStore);
 
     // Start the server.
-    HttpServer server(accountStore, templateStore, pipeline);
+    HttpServer server(accountStore, templateStore, pipeline, journal);
     server.listen("0.0.0.0", 8080);
 
     return 0;

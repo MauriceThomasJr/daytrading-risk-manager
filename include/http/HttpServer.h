@@ -4,6 +4,7 @@
 #include "storage/IAccountStore.h"
 #include "storage/IChecklistTemplateStore.h"
 #include "pipeline/TradePipeline.h"
+#include "journal/ITradeJournal.h"
 #include <httplib.h>
 #include <string>
 
@@ -11,7 +12,8 @@ class HttpServer {
 public:
     HttpServer(IAccountStore& accountStore,
                IChecklistTemplateStore& templateStore,
-               TradePipeline& pipeline);
+               TradePipeline& pipeline,
+               ITradeJournal& journal);
 
     void listen(const std::string& host, int port);
 
@@ -22,6 +24,7 @@ private:
     IAccountStore& accountStore_;
     IChecklistTemplateStore& templateStore_;
     TradePipeline& pipeline_;
+    ITradeJournal& journal_;
 };
 
 #endif
