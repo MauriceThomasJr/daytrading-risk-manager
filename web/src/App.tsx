@@ -21,11 +21,11 @@ const DEFAULT_CHECKLIST_ITEMS: ChecklistItem[] = [
 ]
 
 const DEFAULT_TRADE: TradeFormState = {
-  instrument: { symbol: "MES", dollar_per_point: 5, tick_size: 0.25 },
+  instrument: { symbol: "NQ", dollar_per_point: 20, tick_size: 0.25 },
   side: "Long",
-  entry_price: 7000,
-  stop_price: 6991,
-  target_price: 7050,
+  entry_price: 24773,
+  stop_price: 24730,
+  target_price: 25000,
 }
 
 
@@ -68,7 +68,13 @@ function App() {
               </div>
             )}
             {barsQuery.isSuccess && (
-              <LightweightChart bars={barsQuery.data} height={720} />
+             <LightweightChart
+                bars={barsQuery.data}
+                height={720}
+                entryPrice={typeof trade.entry_price === "number" ? trade.entry_price : null}
+                stopPrice={typeof trade.stop_price === "number" ? trade.stop_price : null}
+                targetPrice={typeof trade.target_price === "number" ? trade.target_price : null}
+              />
             )}
           </div>
           <p className="mt-1 px-1 text-xs text-gray-500">
