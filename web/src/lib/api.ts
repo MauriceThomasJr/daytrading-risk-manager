@@ -39,3 +39,25 @@ export async function fetchRecentTrades(limit: number = 10): Promise<TradesListR
 
   return res.json()
 }
+import type { OhlcvBar } from "@/types/chart"
+
+export async function fetchHistoricalBars(
+  symbol: "nq" | "es",
+  date: string,
+): Promise<OhlcvBar[]> {
+  const res = await fetch(`/data/${symbol}/${date}.json`)
+  if (!res.ok) {
+    throw new Error(`No data for ${symbol} on ${date}`)
+  }
+  return res.json()
+}
+
+export async function fetchAvailableDates(
+  symbol: "nq" | "es",
+): Promise<string[]> {
+  const res = await fetch(`/data/${symbol}/index.json`)
+  if (!res.ok) {
+    throw new Error(`Index not found for ${symbol}`)
+  }
+  return res.json()
+}
