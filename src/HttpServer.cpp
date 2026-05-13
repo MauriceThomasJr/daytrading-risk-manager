@@ -98,6 +98,22 @@ HttpServer::HttpServer(IAccountStore& accountStore,
 }
 
 void HttpServer::registerRoutes() {
+    
+    // Allow browser-based clients (the frontend) to call this API.
+    server_.set_pre_routing_handler([](const httplib::Request&,
+                                        httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "*");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type");
+        return httplib::Server::HandlerResponse::Unhandled;
+    });
+
+    // Respond to CORS preflight requests (OPTIONS) for any path.
+    server_.Options(R"(.*)",
+                    [](const httplib::Request&, httplib::Response& res) {
+        res.status = 204;  // No Content
+    });
+    
     // ----- Health -----
     server_.Get("/health", [](const httplib::Request&, httplib::Response& res) {
         json response = {{"status", "ok"}};

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Daytrading Risk Manager</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   Roboto, Oxygen, sans-serif;
+      background: #f7f7f8;
+      color: #1a1a1a;
+      max-width: 760px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      color: #666;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #555;
+      margin: 0 0 1rem 0;
+      font-weight: 600;
+    }
+    .row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .row label {
+      flex: 0 0 130px;
+      color: #555;
+    }
+    input[type="text"], input[type="number"], select {
+      flex: 1;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font: inherit;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      border: 1px solid #1a1a1a;
+      background: #1a1a1a;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    button:hover { background: #333; }
+    button.secondary {
+      background: white;
+      color: #1a1a1a;
+    }
+    button.secondary:hover { background: #f0f0f0; }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat .label { color: #555; }
+    .stat .value { font-weight: 500; }
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0;
+    }
+    #result {
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .accepted {
+      background: #e8f5e9;
+      color: #1b5e20;
+      border: 1px solid #a5d6a7;
+    }
+    .rejected {
+      background: #ffebee;
+      color: #b71c1c;
+      border: 1px solid #ef9a9a;
+    }
+    .trade-row {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .trade-row:last-child { border-bottom: none; }
+    .trade-row .id { color: #888; min-width: 40px; }
+    .trade-row .side { min-width: 50px; }
+    .empty { color: #888; font-style: italic; }
+  </style>
+</head>
+<body>
+
+  <h1>Daytrading Risk Manager</h1>
+  <div class="subtitle">Pre-trade discipline gate over the local API.</div>
+
+  <!-- Account -->
+  <div class="card">
+    <h2>Account</h2>
+    <div class="row">
+      <label for="account-id">Account ID</label>
+      <input type="text" id="account-id" value="alice">
+      <button onclick="loadAccount()">Load</button>
+    </div>
+    <div id="account-stats" style="margin-top: 0.75rem;">
+      <div class="empty">No account loaded.</div>
+    </div>
+  </div>
+
+  <!-- Checklist -->
+  <div class="card">
+    <h2>Checklist</h2>
+    <div class="row">
+      <label for="template-id">Template ID</label>
+      <input type="text" id="template-id" value="daily-es">
+    </div>
+    <div id="checklist-items" style="margin-top: 0.75rem;">
+      <div class="checklist-item">
+        <input type="checkbox" id="cb-volume" data-id="volume">
+        <label for="cb-volume">Is there volume confirmation?</label>
+      </div>
+      <div class="checklist-item">
+        <input type="checkbox" id="cb-htf" data-id="htf">
+        <label for="cb-htf">Did you check the higher timeframe?</label>
+      </div>
+      <div class="checklist-item">
+        <input type="checkbox" id="cb-plan" data-id="plan">
+        <label for="cb-plan">Is this trade in your written plan?</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trade -->
+  <div class="card">
+    <h2>Trade</h2>
+    <div class="row">
+      <label for="symbol">Symbol</label>
+      <input type="text" id="symbol" value="MES">
+    </div>
+    <div class="row">
+      <label for="dpp">$/point</label>
+      <input type="number" id="dpp" value="5" step="0.01">
+    </div>
+    <div class="row">
+      <label for="tick">Tick size</label>
+      <input type="number" id="tick" value="0.25" step="0.01">
+    </div>
+    <div class="row">
+      <label for="side">Side</label>
+      <select id="side">
+        <option value="Long">Long</option>
+        <option value="Short">Short</option>
+      </select>
+    </div>
+    <div class="row">
+      <label for="entry">Entry price</label>
+      <input type="number" id="entry" value="7000" step="0.01">
+    </div>
+    <div class="row">
+      <label for="stop">Stop price</label>
+      <input type="number" id="stop" value="6991" step="0.01">
+    </div>
+    <div class="row">
+      <label for="target">Target (optional)</label>
+      <input type="number" id="target" value="7050" step="0.01">
+    </div>
+    <div style="margin-top: 1rem;">
+      <button onclick="submitTrade()">Submit Trade</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="card">
+    <h2>Result</h2>
+    <div id="result" class="empty">No trade submitted yet.</div>
+  </div>
+
+  <!-- Recent Trades -->
+  <div class="card">
+    <h2>
+      Recent Trades
+      <button class="secondary" style="float: right;"
+              onclick="loadTrades()">Refresh</button>
+    </h2>
+    <div id="trades-list">
+      <div class="empty">Click refresh to load.</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:8080';
+
+    function $(id) { return document.getElementById(id); }
+
+    function dollars(n) {
+      return '$' + n.toLocaleString('en-US', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+      });
+    }
+
+    async function loadAccount() {
+      const id = $('account-id').value.trim();
+      const statsDiv = $('account-stats');
+
+      if (!id) {
+        statsDiv.innerHTML = '<div class="empty">Enter an account ID.</div>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/accounts/${encodeURIComponent(id)}`);
+
+        if (res.status === 404) {
+          statsDiv.innerHTML = `<div class="empty">No account found with ID "${id}".</div>`;
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}`);
+        }
+
+        const acct = await res.json();
+        statsDiv.innerHTML = `
+          <div class="stat"><span class="label">Balance</span>
+            <span class="value">${dollars(acct.balance)}</span></div>
+          <div class="stat"><span class="label">Daily P&L</span>
+            <span class="value">${dollars(acct.daily_pnl)}</span></div>
+          <div class="stat"><span class="label">Trades today</span>
+            <span class="value">${acct.trades_today}</span></div>
+        `;
+      } catch (err) {
+        statsDiv.innerHTML =
+          `<div class="empty">Error loading account: ${err.message}</div>`;
+      }
+    }
+
+    function collectChecklistResponses() {
+      const responses = {};
+      document.querySelectorAll('#checklist-items input[type="checkbox"]')
+        .forEach(cb => {
+          responses[cb.dataset.id] = cb.checked;
+        });
+      return responses;
+    }
+
+    async function submitTrade() {
+      const resultDiv = $('result');
+      resultDiv.className = '';
+      resultDiv.textContent = 'Submitting...';
+
+      const body = {
+        account_id:  $('account-id').value.trim(),
+        template_id: $('template-id').value.trim(),
+        side:        $('side').value,
+        entry_price: parseFloat($('entry').value),
+        stop_price:  parseFloat($('stop').value),
+        instrument: {
+          symbol:           $('symbol').value.trim(),
+          dollar_per_point: parseFloat($('dpp').value),
+          tick_size:        parseFloat($('tick').value)
+        },
+        checklist_responses: collectChecklistResponses()
+      };
+
+      const targetVal = $('target').value;
+      if (targetVal !== '') {
+        body.target_price = parseFloat(targetVal);
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/trades`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (data.accepted) {
+          const o = data.order;
+          resultDiv.className = 'accepted';
+          resultDiv.textContent =
+            `✓ ACCEPTED — Order #${o.id}, ${o.size} ` +
+            `${o.side} ${o.symbol} @ ${o.entry_price}, stop ${o.stop_price}`;
+        } else {
+          resultDiv.className = 'rejected';
+          const reasons = (data.rejection_reasons || [data.error])
+                          .filter(Boolean).join('; ');
+          resultDiv.textContent = `✗ REJECTED — ${reasons}`;
+        }
+
+        // After a successful submission, refresh account stats.
+        if (data.accepted) loadAccount();
+      } catch (err) {
+        resultDiv.className = 'rejected';
+        resultDiv.textContent = `Error: ${err.message}`;
+      }
+    }
+
+    async function loadTrades() {
+      const listDiv = $('trades-list');
+      listDiv.innerHTML = '<div class="empty">Loading...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE}/trades?limit=20`);
+        const data = await res.json();
+        const trades = data.trades || [];
+
+        if (trades.length === 0) {
+          listDiv.innerHTML = '<div class="empty">No trades yet.</div>';
+          return;
+        }
+
+        listDiv.innerHTML = trades.map(t => `
+          <div class="trade-row">
+            <span class="id">#${t.id}</span>
+            <span class="side">${t.side}</span>
+            <span>${t.symbol}</span>
+            <span>${t.size} @ ${t.entry_price}</span>
+            <span>stop ${t.stop_price}</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        listDiv.innerHTML =
+          `<div class="empty">Error loading trades: ${err.message}</div>`;
+      }
+    }
+
+    // Load on page open.
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAccount();
+      loadTrades();
+    });
+  </script>
+</body>
+</html>
