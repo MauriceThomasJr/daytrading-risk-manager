@@ -4,6 +4,7 @@ import { ChecklistPanel } from "@/components/ChecklistPanel"
 import { SubmitBar } from "@/components/SubmitBar"
 import { TradeForm } from "@/components/TradeForm"
 import { RecentTrades } from "@/components/RecentTrades"
+import { TradingViewChart } from "@/components/TradingViewChart"
 
 import type {
   TradeFormState,
@@ -24,16 +25,48 @@ const DEFAULT_TRADE: TradeFormState = {
   stop_price: 6991,
   target_price: 7050,
 }
-
+function symbolToTradingView(symbol: string): string {
+  // The free TradingView widget doesn't serve CME futures data to embeds.
+  // We show stock ETF proxies that track each futures contract 1:1.
+  const upper = symbol.toUpperCase().trim()
+  const map: Record<string, string> = {
+    ES:  "AMEX:SPY",     // SPY tracks ES (S&P 500)
+    MES: "AMEX:SPY",
+    NQ:  "NASDAQ:QQQ",   // QQQ tracks NQ (Nasdaq-100)
+    MNQ: "NASDAQ:QQQ",
+    RTY: "AMEX:IWM",     // IWM tracks RTY (Russell 2000)
+    M2K: "AMEX:IWM",
+    YM:  "AMEX:DIA",     // DIA tracks YM (Dow)
+    MYM: "AMEX:DIA",
+  }
+  return map[upper] ?? upper  // Anything else (CL, GC, etc.) passes through
+}
+function getProxyNote(symbol: string): string {
+  const upper = symbol.toUpperCase().trim()
+  const notes: Record<string, string> = {
+    ES:  "SPY (tracks ES 1:1)",
+    MES: "SPY (tracks MES 1:1)",
+    NQ:  "QQQ (tracks NQ 1:1)",
+    MNQ: "QQQ (tracks MNQ 1:1)",
+    RTY: "IWM (tracks RTY)",
+    M2K: "IWM (tracks M2K)",
+    YM:  "DIA (tracks YM)",
+    MYM: "DIA (tracks MYM)",
+  }
+  return notes[upper] ?? upper
+}
 function App() {
   const [accountId, setAccountId] = useState("alice")
   const [templateId, setTemplateId] = useState("daily-es")
   const [responses, setResponses] = useState<ChecklistResponses>({})
   const [trade, setTrade] = useState<TradeFormState>(DEFAULT_TRADE)
 
+  const tvSymbol = symbolToTradingView(trade.instrument.symbol)
+  
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Daytrading Risk Manager
@@ -43,6 +76,10 @@ function App() {
           </p>
         </div>
 
+        <TradingViewChart symbol={tvSymbol} interval="5" height={500} />
+        <p className="text-xs text-gray-500 px-1">
+          Showing {getProxyNote(trade.instrument.symbol)}
+        </p>
         <AccountPanel
           accountId={accountId}
           onAccountIdChange={setAccountId}
@@ -64,6 +101,7 @@ function App() {
           trade={trade}
           responses={responses}
         />
+
         <RecentTrades />
       </div>
     </div>
