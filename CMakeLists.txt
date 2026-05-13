@@ -35,6 +35,7 @@ add_library(risk_manager_lib
     src/InMemoryAccountStore.cpp
     src/SqliteAccountStore.cpp
     src/InMemoryChecklistTemplateStore.cpp
+    src/SqliteChecklistTemplateStore.cpp
 )
 
 # Anyone who uses risk_manager_lib needs the include/ folder
@@ -82,6 +83,7 @@ add_executable(tests
     tests/test_in_memory_account_store.cpp
     tests/test_sqlite_account_store.cpp
     tests/test_in_memory_checklist_template_store.cpp
+    tests/test_sqlite_checklist_template_store.cpp    
 )
 target_link_libraries(tests PRIVATE risk_manager_lib Catch2::Catch2WithMain)
 
