@@ -10,7 +10,8 @@ import {
 import type { OhlcvBar } from "@/types/chart"
 
 interface LightweightChartProps {
-  bars: OhlcvBar[]
+  historicalBars: OhlcvBar[]
+  latestBar?: OhlcvBar | null
   height?: number
   entryPrice?: number | null
   stopPrice?: number | null
@@ -18,7 +19,8 @@ interface LightweightChartProps {
 }
 
 export function LightweightChart({
-  bars,
+  historicalBars,
+  latestBar,
   height = 720,
   entryPrice,
   stopPrice,
@@ -48,6 +50,8 @@ export function LightweightChart({
         timeVisible: true,
         secondsVisible: false,
         borderColor: "#e0e0e0",
+        rightOffset: 5,
+        barSpacing: 8,
       },
       rightPriceScale: {
         borderColor: "#e0e0e0",
@@ -84,12 +88,13 @@ export function LightweightChart({
     }
   }, [height])
 
-  // When bars change, push them to the series.
+  // When the historical bars change wholesale (timeframe switch, scrub
+  // backward, new session), reset the entire series.
   useEffect(() => {
     if (!seriesRef.current) return
 
     seriesRef.current.setData(
-      bars.map((b) => ({
+      historicalBars.map((b) => ({
         time: b.time as never,
         open: b.open,
         high: b.high,
@@ -97,29 +102,37 @@ export function LightweightChart({
         close: b.close,
       }))
     )
+  }, [historicalBars])
 
-    if (chartRef.current) {
-      chartRef.current.timeScale().fitContent()
-    }
-  }, [bars])
+  // When a new latest bar arrives, push it incrementally. This is much
+  // smoother than rebuilding the whole series each tick.
+  useEffect(() => {
+    if (!seriesRef.current || !latestBar) return
+
+    seriesRef.current.update({
+      time: latestBar.time as never,
+      open: latestBar.open,
+      high: latestBar.high,
+      low: latestBar.low,
+      close: latestBar.close,
+    })
+  }, [latestBar])
 
   // When trade levels change, redraw the price lines.
   useEffect(() => {
     const series = seriesRef.current
     if (!series) return
 
-    // Remove old lines first.
     for (const line of priceLinesRef.current) {
       series.removePriceLine(line)
     }
     priceLinesRef.current = []
 
-    // Draw new lines for whichever levels are present.
     if (typeof entryPrice === "number" && !Number.isNaN(entryPrice)) {
       priceLinesRef.current.push(
         series.createPriceLine({
           price: entryPrice,
-          color: "#2196f3",        // blue
+          color: "#2196f3",
           lineWidth: 2,
           lineStyle: LineStyle.Solid,
           axisLabelVisible: true,
@@ -131,7 +144,7 @@ export function LightweightChart({
       priceLinesRef.current.push(
         series.createPriceLine({
           price: stopPrice,
-          color: "#ef5350",        // red
+          color: "#ef5350",
           lineWidth: 2,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
@@ -143,7 +156,7 @@ export function LightweightChart({
       priceLinesRef.current.push(
         series.createPriceLine({
           price: targetPrice,
-          color: "#26a69a",        // green
+          color: "#26a69a",
           lineWidth: 2,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
