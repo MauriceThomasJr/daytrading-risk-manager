@@ -16,6 +16,8 @@ public:
                     std::chrono::system_clock::time_point closedAt) override;
     std::vector<Order> recentTrades(int limit) const override;
 
+    std::optional<Order> findById(std::int64_t orderId) const override;
+
 private:
     void ensureSchema();
     void addColumnIfMissing(const std::string& columnName, const std::string& columnType);

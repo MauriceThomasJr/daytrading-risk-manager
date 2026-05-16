@@ -11,6 +11,7 @@ public:
                     double exitPrice,
                     double realizedPnL,
                     std::chrono::system_clock::time_point closedAt) override;
+    std::optional<Order> findById(std::int64_t orderId) const override;
     std::vector<Order> recentTrades(int limit) const override;
 
     int size() const;

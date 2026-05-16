@@ -115,3 +115,22 @@ TEST_CASE("InMemoryTradeJournal closeTrade throws for unknown ID", "[journal]") 
         std::runtime_error
     );
 }
+TEST_CASE("InMemoryTradeJournal findById returns the trade if it exists", "[journal]") {
+    InMemoryTradeJournal journal;
+
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+    Order order = Order::fromValidatedIntent(intent, 1);
+    journal.record(order);
+
+    auto found = journal.findById(order.getId());
+    REQUIRE(found.has_value());
+    REQUIRE(found->getId() == order.getId());
+}
+
+TEST_CASE("InMemoryTradeJournal findById returns nullopt for unknown ID", "[journal]") {
+    InMemoryTradeJournal journal;
+
+    auto found = journal.findById(999);
+    REQUIRE(found.has_value() == false);
+}

@@ -44,6 +44,13 @@ json orderToJson(const Order& order) {
     if (order.getTargetPrice().has_value()) {
         j["target_price"] = *order.getTargetPrice();
     }
+    if (order.isClosed()) {
+        j["is_closed"] = true;
+        j["exit_price"] = *order.getExitPrice();
+        j["realized_pnl"] = *order.getRealizedPnL();
+    } else {
+        j["is_closed"] = false;
+    }
     return j;
 }
 
@@ -98,7 +105,7 @@ HttpServer::HttpServer(IAccountStore& accountStore,
 }
 
 void HttpServer::registerRoutes() {
-    
+
     // Allow browser-based clients (the frontend) to call this API.
     server_.set_pre_routing_handler([](const httplib::Request&,
                                         httplib::Response& res) {
@@ -111,9 +118,9 @@ void HttpServer::registerRoutes() {
     // Respond to CORS preflight requests (OPTIONS) for any path.
     server_.Options(R"(.*)",
                     [](const httplib::Request&, httplib::Response& res) {
-        res.status = 204;  // No Content
+        res.status = 204;
     });
-    
+
     // ----- Health -----
     server_.Get("/health", [](const httplib::Request&, httplib::Response& res) {
         json response = {{"status", "ok"}};
@@ -137,16 +144,15 @@ void HttpServer::registerRoutes() {
     // ----- POST /trades -----
     server_.Post("/trades",
                  [this](const httplib::Request& req, httplib::Response& res) {
-        // 1. Parse the request body as JSON.
+        // 1. Parse the request body.
         json body;
         try {
             body = json::parse(req.body);
-        } catch (const json::parse_error& e) {
+        } catch (const json::parse_error&) {
             writeError(res, 400, "Invalid JSON in request body");
             return;
         }
 
-        // 2. Pull out required fields and validate they're present.
         try {
             std::string accountId  = body.at("account_id").get<std::string>();
             std::string templateId = body.at("template_id").get<std::string>();
@@ -154,7 +160,6 @@ void HttpServer::registerRoutes() {
             double entryPrice      = body.at("entry_price").get<double>();
             double stopPrice       = body.at("stop_price").get<double>();
 
-            // 3. Look up the account.
             auto accountOpt = accountStore_.load(accountId);
             if (!accountOpt) {
                 writeError(res, 404, "Account not found", "account_id", accountId);
@@ -162,7 +167,6 @@ void HttpServer::registerRoutes() {
             }
             Account account = *accountOpt;
 
-            // 4. Look up the checklist template.
             auto templateOpt = templateStore_.load(templateId);
             if (!templateOpt) {
                 writeError(res, 404, "Checklist template not found",
@@ -171,7 +175,6 @@ void HttpServer::registerRoutes() {
             }
             ChecklistTemplate tmpl = *templateOpt;
 
-            // 5. Build the instrument from the nested JSON.
             json instrumentJson = body.at("instrument");
             Instrument instrument(
                 instrumentJson.at("symbol").get<std::string>(),
@@ -179,13 +182,11 @@ void HttpServer::registerRoutes() {
                 instrumentJson.at("tick_size").get<double>()
             );
 
-            // 6. Optional target price.
             std::optional<double> targetPrice = std::nullopt;
             if (body.contains("target_price") && !body["target_price"].is_null()) {
                 targetPrice = body["target_price"].get<double>();
             }
 
-            // 7. Build the TradeIntent.
             TradeIntent intent(
                 sideFromString(sideStr),
                 instrument,
@@ -194,7 +195,6 @@ void HttpServer::registerRoutes() {
                 targetPrice
             );
 
-            // 8. Build the ChecklistResponse from the JSON object.
             ChecklistResponse responses;
             if (body.contains("checklist_responses")) {
                 for (auto& [key, value] : body["checklist_responses"].items()) {
@@ -202,17 +202,13 @@ void HttpServer::registerRoutes() {
                 }
             }
 
-            // 9. Run the pipeline.
             TradeSubmissionResult result = pipeline_.submit(
                 intent, account, tmpl, responses);
 
-            // 10. If the trade was accepted, persist the updated account
-            //     (its trade count and P&L changed).
             if (result.accepted) {
                 accountStore_.save(account);
             }
 
-            // 11. Return the result.
             res.set_content(submissionResultToJson(result).dump(),
                             "application/json");
 
@@ -226,10 +222,77 @@ void HttpServer::registerRoutes() {
             writeError(res, 500, std::string("Internal server error: ") + e.what());
         }
     });
+
+    // ----- POST /trades/{id}/close -----
+    server_.Post(R"(/trades/(\d+)/close)",
+                 [this](const httplib::Request& req, httplib::Response& res) {
+        std::int64_t orderId;
+        try {
+            orderId = std::stoll(req.matches[1]);
+        } catch (const std::exception&) {
+            writeError(res, 400, "Invalid order ID");
+            return;
+        }
+
+        json body;
+        try {
+            body = json::parse(req.body);
+        } catch (const json::parse_error&) {
+            writeError(res, 400, "Invalid JSON in request body");
+            return;
+        }
+
+        try {
+            std::string accountId = body.at("account_id").get<std::string>();
+            double exitPrice = body.at("exit_price").get<double>();
+
+            auto orderOpt = journal_.findById(orderId);
+            if (!orderOpt) {
+                writeError(res, 404, "Trade not found", "order_id", std::to_string(orderId));
+                return;
+            }
+            Order order = *orderOpt;
+
+            if (order.isClosed()) {
+                writeError(res, 409, "Trade is already closed",
+                           "order_id", std::to_string(orderId));
+                return;
+            }
+
+            auto accountOpt = accountStore_.load(accountId);
+            if (!accountOpt) {
+                writeError(res, 404, "Account not found", "account_id", accountId);
+                return;
+            }
+            Account account = *accountOpt;
+
+            double pricediff = (order.getSide() == Side::Long)
+                ? (exitPrice - order.getEntryPrice())
+                : (order.getEntryPrice() - exitPrice);
+            double realizedPnL = pricediff * order.getSize() * order.getInstrument().getDollarPerPoint();
+
+            auto closedAt = std::chrono::system_clock::now();
+            journal_.closeTrade(orderId, exitPrice, realizedPnL, closedAt);
+
+            account.recordTradeResult(realizedPnL);
+            accountStore_.save(account);
+
+            order.close(closedAt, exitPrice, realizedPnL);
+            json response = orderToJson(order);
+            res.set_content(response.dump(), "application/json");
+
+        } catch (const json::type_error& e) {
+            writeError(res, 400, std::string("Invalid field type: ") + e.what());
+        } catch (const json::out_of_range& e) {
+            writeError(res, 400, std::string("Missing required field: ") + e.what());
+        } catch (const std::exception& e) {
+            writeError(res, 500, std::string("Internal server error: ") + e.what());
+        }
+    });
+
     // ----- GET /trades?limit=N -----
     server_.Get("/trades",
                 [this](const httplib::Request& req, httplib::Response& res) {
-        // Default to 10 if no limit is provided.
         int limit = 10;
         if (req.has_param("limit")) {
             try {

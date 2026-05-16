@@ -228,3 +228,37 @@ TEST_CASE("SqliteTradeJournal closed trades persist across reopens", "[sqlite_jo
         REQUIRE(*recent[0].getRealizedPnL() == 2500.0);
     }
 }
+TEST_CASE("SqliteTradeJournal findById returns the trade if it exists", "[sqlite_journal]") {
+    SqliteTradeJournal journal(":memory:");
+
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+    Order order = Order::fromValidatedIntent(intent, 1);
+    journal.record(order);
+
+    auto found = journal.findById(order.getId());
+    REQUIRE(found.has_value());
+    REQUIRE(found->getId() == order.getId());
+}
+
+TEST_CASE("SqliteTradeJournal findById returns nullopt for unknown ID", "[sqlite_journal]") {
+    SqliteTradeJournal journal(":memory:");
+    REQUIRE(journal.findById(999).has_value() == false);
+}
+
+TEST_CASE("SqliteTradeJournal findById returns a closed trade as closed", "[sqlite_journal]") {
+    SqliteTradeJournal journal(":memory:");
+
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+    Order order = Order::fromValidatedIntent(intent, 1);
+    journal.record(order);
+
+    auto closedAt = std::chrono::system_clock::now();
+    journal.closeTrade(order.getId(), 7050.0, 2500.0, closedAt);
+
+    auto found = journal.findById(order.getId());
+    REQUIRE(found.has_value());
+    REQUIRE(found->isClosed() == true);
+    REQUIRE(*found->getExitPrice() == 7050.0);
+}

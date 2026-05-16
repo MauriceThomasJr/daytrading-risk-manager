@@ -31,3 +31,11 @@ std::vector<Order> InMemoryTradeJournal::recentTrades(int limit) const {
 int InMemoryTradeJournal::size() const {
     return static_cast<int>(trades_.size());
 }
+std::optional<Order> InMemoryTradeJournal::findById(std::int64_t orderId) const {
+    auto it = std::find_if(trades_.begin(), trades_.end(),
+                           [orderId](const Order& o) { return o.getId() == orderId; });
+    if (it == trades_.end()) {
+        return std::nullopt;
+    }
+    return *it;
+}

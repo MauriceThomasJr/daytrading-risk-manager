@@ -178,3 +178,52 @@ void SqliteTradeJournal::closeTrade(std::int64_t orderId,
         throw std::runtime_error("No trade with ID " + std::to_string(orderId));
     }
 }
+std::optional<Order> SqliteTradeJournal::findById(std::int64_t orderId) const {
+    SQLite::Statement query(db_,
+        "SELECT id, symbol, dollar_per_point, tick_size, side, size, "
+        "       entry_price, stop_price, target_price, created_at_ns, "
+        "       closed_at_ns, exit_price, realized_pnl "
+        "FROM trades "
+        "WHERE id = ?"
+    );
+    query.bind(1, orderId);
+
+    if (!query.executeStep()) {
+        return std::nullopt;
+    }
+
+    std::int64_t id = query.getColumn(0).getInt64();
+    std::string symbol = query.getColumn(1).getString();
+    double dpp = query.getColumn(2).getDouble();
+    double tick = query.getColumn(3).getDouble();
+    std::string sideStr = query.getColumn(4).getString();
+    int size = query.getColumn(5).getInt();
+    double entryPrice = query.getColumn(6).getDouble();
+    double stopPrice = query.getColumn(7).getDouble();
+
+    std::optional<double> targetPrice;
+    if (!query.isColumnNull(8)) {
+        targetPrice = query.getColumn(8).getDouble();
+    }
+
+    std::int64_t createdAtNs = query.getColumn(9).getInt64();
+    auto createdAt = std::chrono::system_clock::time_point(
+        std::chrono::nanoseconds(createdAtNs));
+
+    Instrument instrument(symbol, dpp, tick);
+    Side side = (sideStr == "Long") ? Side::Long : Side::Short;
+    TradeIntent intent(side, instrument, entryPrice, stopPrice, targetPrice);
+
+    if (!query.isColumnNull(10)) {
+        std::int64_t closedAtNs = query.getColumn(10).getInt64();
+        double exitPrice = query.getColumn(11).getDouble();
+        double realizedPnL = query.getColumn(12).getDouble();
+        auto closedAt = std::chrono::system_clock::time_point(
+            std::chrono::nanoseconds(closedAtNs));
+
+        return Order::fromClosedStorage(
+            intent, size, id, createdAt, closedAt, exitPrice, realizedPnL);
+    }
+
+    return Order::fromStorage(intent, size, id, createdAt);
+}
