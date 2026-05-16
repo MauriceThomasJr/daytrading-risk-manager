@@ -253,10 +253,11 @@ function App() {
           />
 
           <ActiveTradePanel
-            activeOrder={activeOrder}
-            accountId={accountId}
-            onTradeClosed={() => setActiveOrder(null)}
-          />
+              activeOrder={activeOrder}
+              accountId={accountId}
+              currentPrice={currentPrice}
+              onTradeClosed={() => setActiveOrder(null)}
+            />
 
           <RecentTrades />
         </div>

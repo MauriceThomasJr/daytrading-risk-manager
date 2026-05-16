@@ -144,7 +144,6 @@ void HttpServer::registerRoutes() {
     // ----- POST /trades -----
     server_.Post("/trades",
                  [this](const httplib::Request& req, httplib::Response& res) {
-        // 1. Parse the request body.
         json body;
         try {
             body = json::parse(req.body);
@@ -223,10 +222,19 @@ void HttpServer::registerRoutes() {
         }
     });
 
-// ----- POST /trades -----
-    server_.Post("/trades",
+    // ----- POST /trades/{id}/close -----
+    server_.Post(R"(/trades/(\d+)/close)",
                  [this](const httplib::Request& req, httplib::Response& res) {
-        // 1. Parse the request body.
+        // 1. Extract the order ID from the URL.
+        std::int64_t orderId;
+        try {
+            orderId = std::stoll(req.matches[1]);
+        } catch (const std::exception&) {
+            writeError(res, 400, "Invalid order ID");
+            return;
+        }
+
+        // 2. Parse the request body.
         json body;
         try {
             body = json::parse(req.body);
@@ -236,16 +244,25 @@ void HttpServer::registerRoutes() {
         }
 
         try {
-            std::string accountId  = body.at("account_id").get<std::string>();
-            std::string templateId = body.at("template_id").get<std::string>();
-            std::string sideStr    = body.at("side").get<std::string>();
-            double currentPrice    = body.at("current_price").get<double>();
-            double stopPrice       = body.at("stop_price").get<double>();
+            std::string accountId = body.at("account_id").get<std::string>();
+            double exitPrice = body.at("exit_price").get<double>();
 
-            // NOTE: client also sends "size", but for now the pipeline still
-            // computes the position size from risk %. We'll wire user-specified
-            // size through the pipeline in a follow-up change.
+            // 3. Look up the trade.
+            auto orderOpt = journal_.findById(orderId);
+            if (!orderOpt) {
+                writeError(res, 404, "Trade not found", "order_id", std::to_string(orderId));
+                return;
+            }
+            Order order = *orderOpt;
 
+            // 4. If the trade is already closed, reject.
+            if (order.isClosed()) {
+                writeError(res, 409, "Trade is already closed",
+                           "order_id", std::to_string(orderId));
+                return;
+            }
+
+            // 5. Look up the account.
             auto accountOpt = accountStore_.load(accountId);
             if (!accountOpt) {
                 writeError(res, 404, "Account not found", "account_id", accountId);
@@ -253,57 +270,31 @@ void HttpServer::registerRoutes() {
             }
             Account account = *accountOpt;
 
-            auto templateOpt = templateStore_.load(templateId);
-            if (!templateOpt) {
-                writeError(res, 404, "Checklist template not found",
-                           "template_id", templateId);
-                return;
-            }
-            ChecklistTemplate tmpl = *templateOpt;
+            // 6. Compute realized P&L.
+            //    For a long: pnl = (exit - entry) * size * $/point
+            //    For a short: pnl = (entry - exit) * size * $/point
+            double pricediff = (order.getSide() == Side::Long)
+                ? (exitPrice - order.getEntryPrice())
+                : (order.getEntryPrice() - exitPrice);
+            double realizedPnL = pricediff * order.getSize() * order.getInstrument().getDollarPerPoint();
 
-            json instrumentJson = body.at("instrument");
-            Instrument instrument(
-                instrumentJson.at("symbol").get<std::string>(),
-                instrumentJson.at("dollar_per_point").get<double>(),
-                instrumentJson.at("tick_size").get<double>()
-            );
+            // 7. Mark the trade closed in the journal.
+            auto closedAt = std::chrono::system_clock::now();
+            journal_.closeTrade(orderId, exitPrice, realizedPnL, closedAt);
 
-            std::optional<double> targetPrice = std::nullopt;
-            if (body.contains("target_price") && !body["target_price"].is_null()) {
-                targetPrice = body["target_price"].get<double>();
-            }
+            // 8. Apply the P&L to the account.
+            account.recordTradeResult(realizedPnL);
+            accountStore_.save(account);
 
-            TradeIntent intent(
-                sideFromString(sideStr),
-                instrument,
-                currentPrice,      // entry = current chart price (market order)
-                stopPrice,
-                targetPrice
-            );
-
-            ChecklistResponse responses;
-            if (body.contains("checklist_responses")) {
-                for (auto& [key, value] : body["checklist_responses"].items()) {
-                    responses[key] = value.get<bool>();
-                }
-            }
-
-            TradeSubmissionResult result = pipeline_.submit(
-                intent, account, tmpl, responses);
-
-            if (result.accepted) {
-                accountStore_.save(account);
-            }
-
-            res.set_content(submissionResultToJson(result).dump(),
-                            "application/json");
+            // 9. Return the updated trade as JSON.
+            order.close(closedAt, exitPrice, realizedPnL);
+            json response = orderToJson(order);
+            res.set_content(response.dump(), "application/json");
 
         } catch (const json::type_error& e) {
             writeError(res, 400, std::string("Invalid field type: ") + e.what());
         } catch (const json::out_of_range& e) {
             writeError(res, 400, std::string("Missing required field: ") + e.what());
-        } catch (const std::invalid_argument& e) {
-            writeError(res, 400, std::string("Invalid field value: ") + e.what());
         } catch (const std::exception& e) {
             writeError(res, 500, std::string("Internal server error: ") + e.what());
         }
