@@ -172,3 +172,59 @@ TEST_CASE("SqliteTradeJournal works through ITradeJournal interface", "[sqlite_j
     auto recent = journal.recentTrades(10);
     REQUIRE(recent.size() == 2);
 }
+TEST_CASE("SqliteTradeJournal closeTrade marks trade as closed", "[sqlite_journal]") {
+    SqliteTradeJournal journal(":memory:");
+
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+    Order order = Order::fromValidatedIntent(intent, 2);
+    journal.record(order);
+
+    auto closedAt = std::chrono::system_clock::now();
+    journal.closeTrade(order.getId(), 7020.0, 1000.0, closedAt);
+
+    auto recent = journal.recentTrades(1);
+    REQUIRE(recent.size() == 1);
+    REQUIRE(recent[0].isClosed() == true);
+    REQUIRE(*recent[0].getExitPrice() == 7020.0);
+    REQUIRE(*recent[0].getRealizedPnL() == 1000.0);
+}
+
+TEST_CASE("SqliteTradeJournal closeTrade throws for unknown ID", "[sqlite_journal]") {
+    SqliteTradeJournal journal(":memory:");
+
+    auto closedAt = std::chrono::system_clock::now();
+    REQUIRE_THROWS_AS(
+        journal.closeTrade(999, 7020.0, 1000.0, closedAt),
+        std::runtime_error
+    );
+}
+
+TEST_CASE("SqliteTradeJournal closed trades persist across reopens", "[sqlite_journal]") {
+    TempDbFile temp("test_close_persist.db");
+
+    std::int64_t orderId;
+    auto closedAt = std::chrono::system_clock::now();
+
+    {
+        SqliteTradeJournal writer(temp.path);
+        Instrument es("ES", 50.0, 0.25);
+        TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+        Order order = Order::fromValidatedIntent(intent, 1);
+        writer.record(order);
+        orderId = order.getId();
+
+        writer.closeTrade(orderId, 7050.0, 2500.0, closedAt);
+    }  // writer destructs
+
+    {
+        SqliteTradeJournal reader(temp.path);
+        auto recent = reader.recentTrades(1);
+
+        REQUIRE(recent.size() == 1);
+        REQUIRE(recent[0].getId() == orderId);
+        REQUIRE(recent[0].isClosed() == true);
+        REQUIRE(*recent[0].getExitPrice() == 7050.0);
+        REQUIRE(*recent[0].getRealizedPnL() == 2500.0);
+    }
+}

@@ -7,12 +7,16 @@
 class InMemoryTradeJournal : public ITradeJournal {
 public:
     void record(const Order& order) override;
+    void closeTrade(std::int64_t orderId,
+                    double exitPrice,
+                    double realizedPnL,
+                    std::chrono::system_clock::time_point closedAt) override;
     std::vector<Order> recentTrades(int limit) const override;
 
     int size() const;
 
 private:
-    std::vector<Order> orders_;
+    std::vector<Order> trades_;
 };
 
 #endif

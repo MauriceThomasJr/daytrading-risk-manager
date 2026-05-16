@@ -7,16 +7,18 @@
 
 class SqliteTradeJournal : public ITradeJournal {
 public:
-    // Open or create a database at the given path.
-    // Use ":memory:" for an in-memory database (tests).
     explicit SqliteTradeJournal(const std::string& dbPath);
 
     void record(const Order& order) override;
+    void closeTrade(std::int64_t orderId,
+                    double exitPrice,
+                    double realizedPnL,
+                    std::chrono::system_clock::time_point closedAt) override;
     std::vector<Order> recentTrades(int limit) const override;
 
 private:
     void ensureSchema();
-    
+    void addColumnIfMissing(const std::string& columnName, const std::string& columnType);
 
     mutable SQLite::Database db_;
 };

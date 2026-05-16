@@ -37,18 +37,40 @@ SqliteTradeJournal::SqliteTradeJournal(const std::string& dbPath)
 void SqliteTradeJournal::ensureSchema() {
     db_.exec(
         "CREATE TABLE IF NOT EXISTS trades ("
-        "  id              INTEGER PRIMARY KEY,"
-        "  symbol          TEXT    NOT NULL,"
-        "  dollar_per_point REAL   NOT NULL,"
-        "  tick_size       REAL    NOT NULL,"
-        "  side            TEXT    NOT NULL,"
-        "  entry_price     REAL    NOT NULL,"
-        "  stop_price      REAL    NOT NULL,"
-        "  target_price    REAL,"
-        "  size            INTEGER NOT NULL,"
-        "  created_at_ns   INTEGER NOT NULL"
+        "  id INTEGER PRIMARY KEY,"
+        "  symbol TEXT NOT NULL,"
+        "  dollar_per_point REAL NOT NULL,"
+        "  tick_size REAL NOT NULL,"
+        "  side TEXT NOT NULL,"
+        "  size INTEGER NOT NULL,"
+        "  entry_price REAL NOT NULL,"
+        "  stop_price REAL NOT NULL,"
+        "  target_price REAL,"
+        "  created_at_ns INTEGER NOT NULL"
         ")"
     );
+
+    // Add close-state columns if they don't already exist. ALTER TABLE
+    // ADD COLUMN is the standard SQLite migration pattern — safe to run
+    // every startup.
+    addColumnIfMissing("closed_at_ns", "INTEGER");
+    addColumnIfMissing("exit_price", "REAL");
+    addColumnIfMissing("realized_pnl", "REAL");
+}
+void SqliteTradeJournal::addColumnIfMissing(const std::string& columnName,
+                                            const std::string& columnType) {
+    // Check if the column already exists by querying SQLite's table_info.
+    SQLite::Statement query(db_,
+        "SELECT COUNT(*) FROM pragma_table_info('trades') WHERE name = ?"
+    );
+    query.bind(1, columnName);
+    query.executeStep();
+
+    int existingCount = query.getColumn(0).getInt();
+    if (existingCount == 0) {
+        std::string sql = "ALTER TABLE trades ADD COLUMN " + columnName + " " + columnType;
+        db_.exec(sql);
+    }
 }
 
 void SqliteTradeJournal::record(const Order& order) {
@@ -78,12 +100,16 @@ void SqliteTradeJournal::record(const Order& order) {
 }
 
 std::vector<Order> SqliteTradeJournal::recentTrades(int limit) const {
+    if (limit <= 0) {
+        return {};
+    }
+    
     std::vector<Order> result;
-    if (limit <= 0) return result;
 
     SQLite::Statement query(db_,
-        "SELECT id, symbol, dollar_per_point, tick_size, side, "
-        "       entry_price, stop_price, target_price, size, created_at_ns "
+        "SELECT id, symbol, dollar_per_point, tick_size, side, size, "
+        "       entry_price, stop_price, target_price, created_at_ns, "
+        "       closed_at_ns, exit_price, realized_pnl "
         "FROM trades "
         "ORDER BY created_at_ns DESC "
         "LIMIT ?"
@@ -91,32 +117,64 @@ std::vector<Order> SqliteTradeJournal::recentTrades(int limit) const {
     query.bind(1, limit);
 
     while (query.executeStep()) {
-        Instrument instrument(
-            query.getColumn(1).getString(),
-            query.getColumn(2).getDouble(),
-            query.getColumn(3).getDouble()
-        );
+        std::int64_t id = query.getColumn(0).getInt64();
+        std::string symbol = query.getColumn(1).getString();
+        double dpp = query.getColumn(2).getDouble();
+        double tick = query.getColumn(3).getDouble();
+        std::string sideStr = query.getColumn(4).getString();
+        int size = query.getColumn(5).getInt();
+        double entryPrice = query.getColumn(6).getDouble();
+        double stopPrice = query.getColumn(7).getDouble();
 
-        std::optional<double> target;
-        if (!query.getColumn(7).isNull()) {
-            target = query.getColumn(7).getDouble();
+        std::optional<double> targetPrice;
+        if (!query.isColumnNull(8)) {
+            targetPrice = query.getColumn(8).getDouble();
         }
 
-        TradeIntent intent(
-            sideFromString(query.getColumn(4).getString()),
-            instrument,
-            query.getColumn(5).getDouble(),
-            query.getColumn(6).getDouble(),
-            target
-        );
+        std::int64_t createdAtNs = query.getColumn(9).getInt64();
+        auto createdAt = std::chrono::system_clock::time_point(
+            std::chrono::nanoseconds(createdAtNs));
 
-        std::int64_t id = query.getColumn(0).getInt64();
-        int size = query.getColumn(8).getInt();
-        auto ns = std::chrono::nanoseconds(query.getColumn(9).getInt64());
-        auto createdAt = std::chrono::system_clock::time_point(ns);
+        Instrument instrument(symbol, dpp, tick);
+        Side side = (sideStr == "Long") ? Side::Long : Side::Short;
+        TradeIntent intent(side, instrument, entryPrice, stopPrice, targetPrice);
 
-        result.push_back(Order::fromStorage(intent, size, id, createdAt));
+        // Check whether this row is for a closed trade.
+        if (!query.isColumnNull(10)) {
+            std::int64_t closedAtNs = query.getColumn(10).getInt64();
+            double exitPrice = query.getColumn(11).getDouble();
+            double realizedPnL = query.getColumn(12).getDouble();
+            auto closedAt = std::chrono::system_clock::time_point(
+                std::chrono::nanoseconds(closedAtNs));
+
+            result.push_back(Order::fromClosedStorage(
+                intent, size, id, createdAt, closedAt, exitPrice, realizedPnL));
+        } else {
+            result.push_back(Order::fromStorage(intent, size, id, createdAt));
+        }
     }
 
     return result;
+}
+void SqliteTradeJournal::closeTrade(std::int64_t orderId,
+                                    double exitPrice,
+                                    double realizedPnL,
+                                    std::chrono::system_clock::time_point closedAt) {
+    auto closedAtNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        closedAt.time_since_epoch()).count();
+
+    SQLite::Statement stmt(db_,
+        "UPDATE trades "
+        "SET closed_at_ns = ?, exit_price = ?, realized_pnl = ? "
+        "WHERE id = ?"
+    );
+    stmt.bind(1, static_cast<std::int64_t>(closedAtNs));
+    stmt.bind(2, exitPrice);
+    stmt.bind(3, realizedPnL);
+    stmt.bind(4, orderId);
+
+    int affected = stmt.exec();
+    if (affected == 0) {
+        throw std::runtime_error("No trade with ID " + std::to_string(orderId));
+    }
 }
