@@ -6,6 +6,7 @@ import type {
   ChecklistResponses,
   TradeRequest,
   TradeResult,
+  OrderResponse,
 } from "@/types/trade"
 
 interface SubmitBarProps {
@@ -13,6 +14,7 @@ interface SubmitBarProps {
   templateId: string
   trade: TradeFormState
   responses: ChecklistResponses
+  onTradeAccepted?: (order: OrderResponse) => void
 }
 
 export function SubmitBar({
@@ -20,26 +22,28 @@ export function SubmitBar({
   templateId,
   trade,
   responses,
+  onTradeAccepted,
 }: SubmitBarProps) {
   const queryClient = useQueryClient()
 
   const mutation = useMutation<TradeResult, Error, TradeRequest>({
     mutationFn: submitTrade,
     onSuccess: (data) => {
-      // Refresh the account if the trade was accepted (the count went up).
       if (data.accepted) {
-    queryClient.invalidateQueries({
-      queryKey: ["account", accountId],
-    })
-    queryClient.invalidateQueries({
-      queryKey: ["recentTrades"],
-            })
+        queryClient.invalidateQueries({
+          queryKey: ["account", accountId],
+        })
+        queryClient.invalidateQueries({
+          queryKey: ["recentTrades"],
+        })
+        if (data.order && onTradeAccepted) {
+          onTradeAccepted(data.order)
         }
+      }
     },
   })
 
   function handleSubmit() {
-    // Validate that prices are filled in.
     if (trade.entry_price === "" || trade.stop_price === "") {
       alert("Entry and stop prices are required.")
       return
@@ -86,7 +90,6 @@ export function SubmitBar({
 }
 
 function ResultDisplay({ result }: { result: TradeResult }) {
-  // Backend uses 4xx with a JSON error body for "account not found" etc.
   if (result.error) {
     return (
       <ResultMessage variant="rejected">

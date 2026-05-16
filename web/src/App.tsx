@@ -7,6 +7,7 @@ import { TradeForm } from "@/components/TradeForm"
 import { RecentTrades } from "@/components/RecentTrades"
 import { LightweightChart } from "@/components/LightweightChart"
 import { ReplayController } from "@/components/ReplayController"
+import { ActiveTradePanel } from "@/components/ActiveTradePanel"
 import { fetchHistoricalBars } from "@/lib/api"
 import { aggregateBars, alignToTimeframe, type Timeframe } from "@/lib/aggregation"
 
@@ -14,6 +15,7 @@ import type {
   TradeFormState,
   ChecklistResponses,
   ChecklistItem,
+  OrderResponse,
 } from "@/types/trade"
 
 const DEFAULT_CHECKLIST_ITEMS: ChecklistItem[] = [
@@ -32,10 +34,13 @@ const DEFAULT_TRADE: TradeFormState = {
 
 const SESSION_DATE = "2026-02-13"
 
-// Always advance playback at the 1-minute rate. Each tick = 60 seconds of
-// market time. Timeframe only affects how the data is presented, not how
-// quickly time passes.
+// Always advance playback at the 1-minute rate.
 const SECONDS_PER_TICK = 60
+
+function getTimeframeSeconds(tf: Timeframe): number {
+  const map = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600 }
+  return map[tf]
+}
 
 function App() {
   const [accountId, setAccountId] = useState("alice")
@@ -45,39 +50,33 @@ function App() {
   const [timeframe, setTimeframe] = useState<Timeframe>("1m")
   const [isPlaying, setIsPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
-
-  // Source of truth: the current wall-clock time of the playback cursor,
-  // in Unix seconds. Everything else is derived from this.
   const [currentTime, setCurrentTime] = useState<number | null>(null)
+  const [activeOrder, setActiveOrder] = useState<OrderResponse | null>(null)
 
   const barsQuery = useQuery({
     queryKey: ["bars", "nq", SESSION_DATE],
     queryFn: () => fetchHistoricalBars("nq", SESSION_DATE),
   })
 
-  // Initialize the cursor to 30 minutes into the session once data loads.
+  // Initialize the cursor 30 minutes into the session once data loads.
   useEffect(() => {
     if (barsQuery.data && currentTime === null) {
       const sessionStart = barsQuery.data[0].time
-      const initialOffset = 30 * 60  // 30 minutes
+      const initialOffset = 30 * 60
       setCurrentTime(sessionStart + initialOffset)
     }
   }, [barsQuery.data, currentTime])
 
-  // Aggregated bars for the chosen timeframe.
   const aggregatedBars = useMemo(() => {
     if (!barsQuery.data) return []
     return aggregateBars(barsQuery.data, timeframe)
   }, [barsQuery.data, timeframe])
 
-  // Find the index of the bar whose window contains currentTime.
-  // The bar at this index is the "current" one — partially formed if
-  // currentTime is mid-window, fully formed if currentTime is past it.
+  // Index of the bar whose window contains currentTime.
   const currentAggregatedIndex = useMemo(() => {
     if (currentTime === null || aggregatedBars.length === 0) return -1
 
     const windowSeconds = getTimeframeSeconds(timeframe)
-    // Find the bar whose [start, start+window) range contains currentTime.
     for (let i = 0; i < aggregatedBars.length; i++) {
       if (aggregatedBars[i].time + windowSeconds > currentTime) {
         return i
@@ -86,14 +85,13 @@ function App() {
     return aggregatedBars.length - 1
   }, [currentTime, aggregatedBars, timeframe])
 
-  // All bars before the currently-forming one. These are fully closed.
+  // Closed bars before the current forming bar.
   const historicalBars = useMemo(() => {
     if (currentAggregatedIndex <= 0) return []
     return aggregatedBars.slice(0, currentAggregatedIndex)
   }, [aggregatedBars, currentAggregatedIndex])
 
-  // The currently-forming (or just-completed) bar. As currentTime advances
-  // within a window, this bar's high/low/close update.
+  // The currently-forming bar, computed fresh from contributing 1m bars.
   const latestBar = useMemo(() => {
     if (currentAggregatedIndex < 0 || currentTime === null) return null
     if (!barsQuery.data) return null
@@ -103,9 +101,6 @@ function App() {
     const windowStart = containingBar.time
     const windowEnd = windowStart + windowSeconds
 
-    // Recompute the current bar from the underlying 1m bars that fall
-    // within this window and are at or before currentTime. This gives the
-    // partial-bar effect: as time advances, the bar's high/low/close shift.
     const contributingBars = barsQuery.data.filter(
       (b) => b.time >= windowStart && b.time < windowEnd && b.time <= currentTime
     )
@@ -122,25 +117,19 @@ function App() {
     }
   }, [aggregatedBars, currentAggregatedIndex, currentTime, barsQuery.data, timeframe])
 
-  // Session boundaries for the progress display.
   const sessionStart = barsQuery.data?.[0]?.time ?? null
   const sessionEnd = barsQuery.data?.[barsQuery.data.length - 1]?.time ?? null
 
-  // Reset the chart when the timeframe changes. Pause and re-anchor to the
-  // start of the bar that contains the current time.
+  // Snap the cursor to the new timeframe's window when timeframe changes.
   useEffect(() => {
     setIsPlaying(false)
     if (currentTime !== null) {
-      // Snap currentTime to the start of its window in the new timeframe.
-      // This keeps the cursor aligned cleanly when switching timeframes.
       setCurrentTime(alignToTimeframe(currentTime, timeframe))
     }
-    // We intentionally only re-anchor on timeframe change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeframe])
 
-  // Playback interval — advances currentTime at the 1m rate, regardless
-  // of the displayed timeframe. Each tick is SECONDS_PER_TICK of market time.
+  // Playback loop: advance currentTime by SECONDS_PER_TICK each interval.
   useEffect(() => {
     if (!isPlaying || currentTime === null || sessionEnd === null) return
 
@@ -161,15 +150,12 @@ function App() {
     return () => clearInterval(id)
   }, [isPlaying, speed, currentTime, sessionEnd])
 
-  // Allow the scrubber to set time directly. The controller passes back a
-  // value in [0, 1] representing fraction of the session elapsed.
   function handleSeekFraction(fraction: number) {
     if (sessionStart === null || sessionEnd === null) return
     const sessionLength = sessionEnd - sessionStart
     setCurrentTime(sessionStart + sessionLength * fraction)
   }
 
-  // Fraction elapsed for the controller's display.
   const fractionElapsed = useMemo(() => {
     if (currentTime === null || sessionStart === null || sessionEnd === null) return 0
     const sessionLength = sessionEnd - sessionStart
@@ -253,6 +239,13 @@ function App() {
             templateId={templateId}
             trade={trade}
             responses={responses}
+            onTradeAccepted={setActiveOrder}
+          />
+
+          <ActiveTradePanel
+            activeOrder={activeOrder}
+            accountId={accountId}
+            onTradeClosed={() => setActiveOrder(null)}
           />
 
           <RecentTrades />
@@ -260,11 +253,6 @@ function App() {
       </div>
     </div>
   )
-}
-
-function getTimeframeSeconds(tf: Timeframe): number {
-  const map = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600 }
-  return map[tf]
 }
 
 export default App

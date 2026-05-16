@@ -61,3 +61,24 @@ export async function fetchAvailableDates(
   }
   return res.json()
 }
+export interface CloseTradeRequest {
+  account_id: string
+  exit_price: number
+}
+
+export async function closeTrade(
+  orderId: number,
+  body: CloseTradeRequest,
+): Promise<OrderResponse> {
+  const res = await fetch(`${API_BASE}/trades/${orderId}/close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error ?? `Server returned ${res.status}`)
+  }
+  return data
+}
