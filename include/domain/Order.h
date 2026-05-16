@@ -2,9 +2,9 @@
 #define ORDER_H
 
 #include "domain/TradeIntent.h"
-#include <optional>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 
 class Order {
 public:
@@ -12,14 +12,21 @@ public:
     // the current time as createdAt.
     static Order fromValidatedIntent(const TradeIntent& intent, int size);
 
-    // Factory for orders loaded from persistent storage. Caller supplies
-    // the original ID and creation timestamp; nothing is generated.
+    // Factory for open orders loaded from persistent storage.
     static Order fromStorage(const TradeIntent& intent, int size,
                              std::int64_t id,
                              std::chrono::system_clock::time_point createdAt);
 
-    // Raise the next-ID counter to be at least lastSeenId + 1. Used at
-    // startup by persistent journals to avoid colliding with existing IDs.
+    // Factory for closed orders loaded from persistent storage.
+    // Includes the close-time fields.
+    static Order fromClosedStorage(const TradeIntent& intent, int size,
+                                   std::int64_t id,
+                                   std::chrono::system_clock::time_point createdAt,
+                                   std::chrono::system_clock::time_point closedAt,
+                                   double exitPrice,
+                                   double realizedPnL);
+
+    // Raise the next-ID counter to be at least lastSeenId + 1.
     static void seedNextOrderId(std::int64_t lastSeenId);
 
     Side getSide() const;
@@ -31,6 +38,17 @@ public:
     std::int64_t getId() const;
     std::chrono::system_clock::time_point getCreatedAt() const;
 
+    // Close-state accessors.
+    bool isClosed() const;
+    std::optional<std::chrono::system_clock::time_point> getClosedAt() const;
+    std::optional<double> getExitPrice() const;
+    std::optional<double> getRealizedPnL() const;
+
+    // Mark this order as closed. Mutates the order in place.
+    void close(std::chrono::system_clock::time_point closedAt,
+               double exitPrice,
+               double realizedPnL);
+
 private:
     Order(const TradeIntent& intent, int size,
           std::int64_t id, std::chrono::system_clock::time_point createdAt);
@@ -39,6 +57,11 @@ private:
     int size_;
     std::int64_t id_;
     std::chrono::system_clock::time_point createdAt_;
+
+    // Close-state fields. All three are set together or none are set.
+    std::optional<std::chrono::system_clock::time_point> closedAt_;
+    std::optional<double> exitPrice_;
+    std::optional<double> realizedPnL_;
 };
 
 #endif

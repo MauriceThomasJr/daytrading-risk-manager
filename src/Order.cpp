@@ -22,47 +22,58 @@ Order Order::fromStorage(const TradeIntent& intent, int size,
     return Order(intent, size, id, createdAt);
 }
 
+Order Order::fromClosedStorage(const TradeIntent& intent, int size,
+                               std::int64_t id,
+                               std::chrono::system_clock::time_point createdAt,
+                               std::chrono::system_clock::time_point closedAt,
+                               double exitPrice,
+                               double realizedPnL) {
+    Order order(intent, size, id, createdAt);
+    order.closedAt_ = closedAt;
+    order.exitPrice_ = exitPrice;
+    order.realizedPnL_ = realizedPnL;
+    return order;
+}
+
 void Order::seedNextOrderId(std::int64_t lastSeenId) {
-    // Raise the counter so the next generated ID is past lastSeenId.
     std::int64_t desired = lastSeenId + 1;
     std::int64_t current = nextOrderId.load();
     while (current < desired) {
-        // compare_exchange_weak updates `current` to the latest value if
-        // the swap fails, so the loop converges.
         if (nextOrderId.compare_exchange_weak(current, desired)) {
             break;
         }
     }
 }
 
-Side Order::getSide() const {
-    return intent_.getSide();
+Side Order::getSide() const { return intent_.getSide(); }
+const Instrument& Order::getInstrument() const { return intent_.getInstrument(); }
+double Order::getEntryPrice() const { return intent_.getEntryPrice(); }
+double Order::getStopPrice() const { return intent_.getStopPrice(); }
+std::optional<double> Order::getTargetPrice() const { return intent_.getTargetPrice(); }
+int Order::getSize() const { return size_; }
+std::int64_t Order::getId() const { return id_; }
+std::chrono::system_clock::time_point Order::getCreatedAt() const { return createdAt_; }
+
+bool Order::isClosed() const {
+    return closedAt_.has_value();
 }
 
-const Instrument& Order::getInstrument() const {
-    return intent_.getInstrument();
+std::optional<std::chrono::system_clock::time_point> Order::getClosedAt() const {
+    return closedAt_;
 }
 
-double Order::getEntryPrice() const {
-    return intent_.getEntryPrice();
+std::optional<double> Order::getExitPrice() const {
+    return exitPrice_;
 }
 
-double Order::getStopPrice() const {
-    return intent_.getStopPrice();
+std::optional<double> Order::getRealizedPnL() const {
+    return realizedPnL_;
 }
 
-std::optional<double> Order::getTargetPrice() const {
-    return intent_.getTargetPrice();
-}
-
-int Order::getSize() const {
-    return size_;
-}
-
-std::int64_t Order::getId() const {
-    return id_;
-}
-
-std::chrono::system_clock::time_point Order::getCreatedAt() const {
-    return createdAt_;
+void Order::close(std::chrono::system_clock::time_point closedAt,
+                  double exitPrice,
+                  double realizedPnL) {
+    closedAt_ = closedAt;
+    exitPrice_ = exitPrice;
+    realizedPnL_ = realizedPnL;
 }

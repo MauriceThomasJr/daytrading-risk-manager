@@ -77,3 +77,44 @@ TEST_CASE("Order timestamps its creation", "[order]") {
     REQUIRE(order.getCreatedAt() >= before);
     REQUIRE(order.getCreatedAt() <= after);
 }
+TEST_CASE("Order is open by default", "[order]") {
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+    Order order = Order::fromValidatedIntent(intent, 1);
+
+    REQUIRE(order.isClosed() == false);
+    REQUIRE(order.getClosedAt().has_value() == false);
+    REQUIRE(order.getExitPrice().has_value() == false);
+    REQUIRE(order.getRealizedPnL().has_value() == false);
+}
+
+TEST_CASE("Order can be closed with outcome data", "[order]") {
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Long, es, 7000.0, 6990.0);
+    Order order = Order::fromValidatedIntent(intent, 2);
+
+    auto now = std::chrono::system_clock::now();
+    order.close(now, 7020.0, 1000.0);  // exit at 7020, +$1000 P&L
+
+    REQUIRE(order.isClosed() == true);
+    REQUIRE(order.getClosedAt().has_value());
+    REQUIRE(*order.getExitPrice() == 7020.0);
+    REQUIRE(*order.getRealizedPnL() == 1000.0);
+}
+
+TEST_CASE("Order fromClosedStorage loads close fields directly", "[order]") {
+    Instrument es("ES", 50.0, 0.25);
+    TradeIntent intent(Side::Short, es, 7000.0, 7010.0);
+
+    auto createdAt = std::chrono::system_clock::now() - std::chrono::hours(1);
+    auto closedAt  = std::chrono::system_clock::now();
+
+    Order order = Order::fromClosedStorage(
+        intent, 3, 42, createdAt, closedAt, 6990.0, 1500.0);
+
+    REQUIRE(order.getId() == 42);
+    REQUIRE(order.getSize() == 3);
+    REQUIRE(order.isClosed() == true);
+    REQUIRE(*order.getExitPrice() == 6990.0);
+    REQUIRE(*order.getRealizedPnL() == 1500.0);
+}
