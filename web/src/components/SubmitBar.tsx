@@ -14,6 +14,7 @@ interface SubmitBarProps {
   templateId: string
   trade: TradeFormState
   responses: ChecklistResponses
+  currentPrice: number | null
   onTradeAccepted?: (order: OrderResponse) => void
 }
 
@@ -22,6 +23,7 @@ export function SubmitBar({
   templateId,
   trade,
   responses,
+  currentPrice,
   onTradeAccepted,
 }: SubmitBarProps) {
   const queryClient = useQueryClient()
@@ -44,8 +46,12 @@ export function SubmitBar({
   })
 
   function handleSubmit() {
-    if (trade.entry_price === "" || trade.stop_price === "") {
-      alert("Entry and stop prices are required.")
+    if (currentPrice === null) {
+      alert("Chart not ready. Please wait for data to load.")
+      return
+    }
+    if (trade.stop_price === "" || trade.size === "") {
+      alert("Size and stop price are required.")
       return
     }
 
@@ -53,7 +59,8 @@ export function SubmitBar({
       account_id: accountId,
       template_id: templateId,
       side: trade.side,
-      entry_price: trade.entry_price,
+      current_price: currentPrice,
+      size: trade.size,
       stop_price: trade.stop_price,
       instrument: trade.instrument,
       checklist_responses: responses,
@@ -72,7 +79,19 @@ export function SubmitBar({
         Submit
       </h2>
 
-      <Button onClick={handleSubmit} disabled={mutation.isPending}>
+      {currentPrice !== null && (
+        <div className="mb-3 text-xs text-gray-600">
+          Will enter at:{" "}
+          <span className="font-mono font-semibold text-gray-900">
+            {currentPrice.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      <Button
+        onClick={handleSubmit}
+        disabled={mutation.isPending || currentPrice === null}
+      >
         {mutation.isPending ? "Submitting..." : "Submit Trade"}
       </Button>
 
@@ -104,16 +123,15 @@ function ResultDisplay({ result }: { result: TradeResult }) {
     const o = result.order
     return (
       <ResultMessage variant="accepted">
-        ✓ ACCEPTED — Order #{o.id}: {o.size} {o.side} {o.symbol} @ {o.entry_price}, stop {o.stop_price}
+        ✓ ACCEPTED — Order #{o.id}: {o.size} {o.side} {o.symbol} @{" "}
+        {o.entry_price}, stop {o.stop_price}
       </ResultMessage>
     )
   }
 
   const reasons = result.rejection_reasons?.join("; ") ?? "Unknown reason"
   return (
-    <ResultMessage variant="rejected">
-      ✗ REJECTED — {reasons}
-    </ResultMessage>
+    <ResultMessage variant="rejected">✗ REJECTED — {reasons}</ResultMessage>
   )
 }
 

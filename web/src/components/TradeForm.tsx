@@ -13,7 +13,7 @@ export function TradeForm({ state, onChange }: TradeFormProps) {
     })
   }
 
-  function setNumber(field: "entry_price" | "stop_price" | "target_price", value: string) {
+  function setNumber(field: "size" | "stop_price" | "target_price", value: string) {
     onChange({
       ...state,
       [field]: value === "" ? "" : parseFloat(value),
@@ -71,13 +71,15 @@ export function TradeForm({ state, onChange }: TradeFormProps) {
           </select>
         </Field>
 
-        <Field label="Entry price">
+        <Field label="Size (contracts)">
           <input
             type="number"
-            step="0.01"
-            value={state.entry_price}
-            onChange={(e) => setNumber("entry_price", e.target.value)}
+            step="1"
+            min="1"
+            value={state.size}
+            onChange={(e) => setNumber("size", e.target.value)}
             className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+            placeholder="1"
           />
         </Field>
 

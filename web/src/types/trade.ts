@@ -8,8 +8,8 @@ export interface Instrument {
 
 export interface TradeFormState {
   instrument: Instrument
-  side: Side
-  entry_price: number | ""
+  side: "Long" | "Short"
+  size: number | ""
   stop_price: number | ""
   target_price: number | ""
 }
@@ -23,8 +23,9 @@ export interface ChecklistItem {
 export interface TradeRequest {
   account_id: string
   template_id: string
-  side: Side
-  entry_price: number
+  side: "Long" | "Short"
+  current_price: number
+  size: number
   stop_price: number
   target_price?: number
   instrument: Instrument

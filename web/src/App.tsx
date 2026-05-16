@@ -27,14 +27,12 @@ const DEFAULT_CHECKLIST_ITEMS: ChecklistItem[] = [
 const DEFAULT_TRADE: TradeFormState = {
   instrument: { symbol: "NQ", dollar_per_point: 20, tick_size: 0.25 },
   side: "Long",
-  entry_price: 24773,
+  size: 1,
   stop_price: 24730,
   target_price: 25000,
 }
 
 const SESSION_DATE = "2026-02-13"
-
-// Always advance playback at the 1-minute rate.
 const SECONDS_PER_TICK = 60
 
 function getTimeframeSeconds(tf: Timeframe): number {
@@ -58,7 +56,6 @@ function App() {
     queryFn: () => fetchHistoricalBars("nq", SESSION_DATE),
   })
 
-  // Initialize the cursor 30 minutes into the session once data loads.
   useEffect(() => {
     if (barsQuery.data && currentTime === null) {
       const sessionStart = barsQuery.data[0].time
@@ -72,10 +69,8 @@ function App() {
     return aggregateBars(barsQuery.data, timeframe)
   }, [barsQuery.data, timeframe])
 
-  // Index of the bar whose window contains currentTime.
   const currentAggregatedIndex = useMemo(() => {
     if (currentTime === null || aggregatedBars.length === 0) return -1
-
     const windowSeconds = getTimeframeSeconds(timeframe)
     for (let i = 0; i < aggregatedBars.length; i++) {
       if (aggregatedBars[i].time + windowSeconds > currentTime) {
@@ -85,13 +80,11 @@ function App() {
     return aggregatedBars.length - 1
   }, [currentTime, aggregatedBars, timeframe])
 
-  // Closed bars before the current forming bar.
   const historicalBars = useMemo(() => {
     if (currentAggregatedIndex <= 0) return []
     return aggregatedBars.slice(0, currentAggregatedIndex)
   }, [aggregatedBars, currentAggregatedIndex])
 
-  // The currently-forming bar, computed fresh from contributing 1m bars.
   const latestBar = useMemo(() => {
     if (currentAggregatedIndex < 0 || currentTime === null) return null
     if (!barsQuery.data) return null
@@ -117,10 +110,18 @@ function App() {
     }
   }, [aggregatedBars, currentAggregatedIndex, currentTime, barsQuery.data, timeframe])
 
+  // The current chart price — what a market order would fill at right now.
+  const currentPrice = useMemo(() => {
+    if (latestBar) return latestBar.close
+    if (historicalBars.length > 0) {
+      return historicalBars[historicalBars.length - 1].close
+    }
+    return null
+  }, [latestBar, historicalBars])
+
   const sessionStart = barsQuery.data?.[0]?.time ?? null
   const sessionEnd = barsQuery.data?.[barsQuery.data.length - 1]?.time ?? null
 
-  // Snap the cursor to the new timeframe's window when timeframe changes.
   useEffect(() => {
     setIsPlaying(false)
     if (currentTime !== null) {
@@ -129,7 +130,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeframe])
 
-  // Playback loop: advance currentTime by SECONDS_PER_TICK each interval.
   useEffect(() => {
     if (!isPlaying || currentTime === null || sessionEnd === null) return
 
@@ -192,9 +192,15 @@ function App() {
                 historicalBars={historicalBars}
                 latestBar={latestBar}
                 height={720}
-                entryPrice={typeof trade.entry_price === "number" ? trade.entry_price : null}
-                stopPrice={typeof trade.stop_price === "number" ? trade.stop_price : null}
-                targetPrice={typeof trade.target_price === "number" ? trade.target_price : null}
+                entryPrice={activeOrder?.entry_price ?? null}
+                stopPrice={
+                  activeOrder?.stop_price ??
+                  (typeof trade.stop_price === "number" ? trade.stop_price : null)
+                }
+                targetPrice={
+                  activeOrder?.target_price ??
+                  (typeof trade.target_price === "number" ? trade.target_price : null)
+                }
               />
             )}
           </div>
@@ -239,7 +245,11 @@ function App() {
             templateId={templateId}
             trade={trade}
             responses={responses}
-            onTradeAccepted={setActiveOrder}
+            currentPrice={currentPrice}
+            onTradeAccepted={(order) => {
+              setActiveOrder(order)
+              setIsPlaying(false)
+            }}
           />
 
           <ActiveTradePanel
